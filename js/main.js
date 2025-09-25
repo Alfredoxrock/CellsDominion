@@ -2,6 +2,7 @@
 import { Simulation } from './simulation.js';
 import { UIManager } from './ui.js';
 import { Camera } from './camera.js';
+import { GodMode } from './godmode.js';
 
 class CellDefenseSimulator {
     constructor() {
@@ -42,6 +43,10 @@ class CellDefenseSimulator {
             console.log('📦 Creating UIManager...');
             this.ui = new UIManager();
             console.log('✅ UIManager created');
+
+            console.log('🌟 Creating GodMode...');
+            this.godMode = new GodMode(this.simulation);
+            console.log('✅ GodMode created');
 
             this.init();
         } catch (error) {

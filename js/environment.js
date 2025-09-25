@@ -1,4 +1,4 @@
-// Environmental hazards and obstacles system
+// Environmental hazards, obstacles, and dynamic climate system
 class Environment {
     constructor(width, height) {
         this.width = width;
@@ -8,6 +8,27 @@ class Environment {
         this.obstacles = [];
         this.hazardZones = [];
         this.spikeTraps = [];
+
+        // Seasonal and climate system
+        this.season = 'spring'; // spring, summer, autumn, winter
+        this.seasonTick = 0;
+        this.seasonDuration = 2000; // Ticks per season
+        this.temperature = 0.5; // 0-1 range
+        this.humidity = 0.5;
+        this.resourceAvailability = 1.0;
+        
+        // Natural disasters
+        this.disasters = [];
+        this.disasterCooldown = 0;
+        this.disasterHistory = [];
+        
+        // Environmental pressures
+        this.toxicity = 0.0; // Global toxicity level
+        this.radiation = 0.0; // Background radiation
+        this.oxygenLevel = 1.0; // Atmospheric oxygen
+        
+        // Climate tracking
+        this.climateHistory = [];
 
         this.generateEnvironment();
     }
@@ -112,6 +133,15 @@ class Environment {
     }
 
     update() {
+        // Update seasonal cycle
+        this.updateSeasons();
+        
+        // Update natural disasters
+        this.updateDisasters();
+        
+        // Update climate effects
+        this.updateClimateEffects();
+        
         // Update spike traps
         this.spikeTraps.forEach(spike => {
             if (spike.cooldown > 0) {
@@ -125,7 +155,192 @@ class Environment {
         // Update hazard zone effects (pulsing, etc.)
         this.hazardZones.forEach(hazard => {
             hazard.pulsePhase += 0.05;
+            
+            // Seasonal intensity changes
+            if (this.season === 'winter' && hazard.type === 'ice') {
+                hazard.intensity = Math.min(1.0, hazard.baseIntensity * 1.5);
+            } else if (this.season === 'summer' && hazard.type === 'acid') {
+                hazard.intensity = Math.min(1.0, hazard.baseIntensity * 1.3);
+            } else {
+                hazard.intensity = hazard.baseIntensity || 0.5;
+            }
         });
+
+        // Update active disasters
+        this.disasters = this.disasters.filter(disaster => {
+            disaster.duration--;
+            disaster.age++;
+            
+            // Update disaster effects based on type
+            this.updateDisasterEffects(disaster);
+            
+            return disaster.duration > 0;
+        });
+    }
+
+    updateSeasons() {
+        this.seasonTick++;
+        
+        if (this.seasonTick >= this.seasonDuration) {
+            this.seasonTick = 0;
+            this.advanceSeason();
+        }
+        
+        // Update environmental parameters based on season
+        const seasonProgress = this.seasonTick / this.seasonDuration;
+        this.updateSeasonalEffects(seasonProgress);
+    }
+
+    advanceSeason() {
+        const seasons = ['spring', 'summer', 'autumn', 'winter'];
+        const currentIndex = seasons.indexOf(this.season);
+        this.season = seasons[(currentIndex + 1) % seasons.length];
+        
+        console.log(`🌱 Season changed to ${this.season}`);
+        
+        // Record climate change
+        this.climateHistory.push({
+            season: this.season,
+            temperature: this.temperature,
+            humidity: this.humidity,
+            resourceAvailability: this.resourceAvailability,
+            timestamp: Date.now()
+        });
+    }
+
+    updateSeasonalEffects(progress) {
+        switch(this.season) {
+            case 'spring':
+                this.temperature = 0.4 + (progress * 0.3); // 0.4 to 0.7
+                this.humidity = 0.7 + (progress * 0.2); // 0.7 to 0.9
+                this.resourceAvailability = 0.8 + (progress * 0.4); // 0.8 to 1.2
+                break;
+                
+            case 'summer':
+                this.temperature = 0.7 + (progress * 0.2); // 0.7 to 0.9
+                this.humidity = 0.3 + (progress * 0.2); // 0.3 to 0.5
+                this.resourceAvailability = 1.2 - (progress * 0.4); // 1.2 to 0.8
+                break;
+                
+            case 'autumn':
+                this.temperature = 0.6 - (progress * 0.3); // 0.6 to 0.3
+                this.humidity = 0.5 + (progress * 0.3); // 0.5 to 0.8
+                this.resourceAvailability = 0.8 - (progress * 0.3); // 0.8 to 0.5
+                break;
+                
+            case 'winter':
+                this.temperature = 0.3 - (progress * 0.1); // 0.3 to 0.2
+                this.humidity = 0.8 - (progress * 0.2); // 0.8 to 0.6
+                this.resourceAvailability = 0.5 + (progress * 0.3); // 0.5 to 0.8 (preparing for spring)
+                break;
+        }
+    }
+
+    updateDisasters() {
+        if (this.disasterCooldown > 0) {
+            this.disasterCooldown--;
+            return;
+        }
+        
+        // Random chance for natural disasters
+        const disasterChance = 0.001 + (this.season === 'autumn' ? 0.0005 : 0); // Higher chance in autumn
+        
+        if (Math.random() < disasterChance) {
+            this.triggerRandomDisaster();
+            this.disasterCooldown = 500 + Math.random() * 1000; // Cooldown between disasters
+        }
+    }
+
+    triggerRandomDisaster() {
+        const disasterTypes = ['meteor', 'toxicSpill', 'radiationStorm', 'plague', 'drought', 'flood'];
+        const type = disasterTypes[Math.floor(Math.random() * disasterTypes.length)];
+        
+        const disaster = {
+            type: type,
+            x: Math.random() * this.width,
+            y: Math.random() * this.height,
+            radius: 100 + Math.random() * 200,
+            intensity: 0.5 + Math.random() * 0.5,
+            duration: 300 + Math.random() * 700, // 5-17 seconds at 60fps
+            age: 0,
+            maxDuration: 1000
+        };
+        
+        this.disasters.push(disaster);
+        this.disasterHistory.push({...disaster, startTime: Date.now()});
+        
+        console.log(`☄️ Natural disaster: ${type} at (${Math.round(disaster.x)}, ${Math.round(disaster.y)})`);
+    }
+
+    updateDisasterEffects(disaster) {
+        switch(disaster.type) {
+            case 'meteor':
+                // Meteor impact creates temporary high-damage zone
+                if (disaster.age === 1) {
+                    // Add temporary hazard zone
+                    this.hazardZones.push({
+                        x: disaster.x,
+                        y: disaster.y,
+                        radius: disaster.radius,
+                        type: 'explosion',
+                        intensity: disaster.intensity * 2,
+                        pulsePhase: 0,
+                        temporary: true,
+                        lifetime: disaster.duration
+                    });
+                }
+                break;
+                
+            case 'toxicSpill':
+                // Increases global toxicity
+                this.toxicity = Math.min(1.0, this.toxicity + 0.001);
+                break;
+                
+            case 'radiationStorm':
+                // Increases background radiation
+                this.radiation = Math.min(1.0, this.radiation + 0.002);
+                break;
+                
+            case 'drought':
+                // Reduces resource availability
+                this.resourceAvailability *= 0.999;
+                break;
+                
+            case 'flood':
+                // Increases humidity, reduces movement
+                this.humidity = Math.min(1.0, this.humidity + 0.001);
+                break;
+        }
+    }
+
+    updateClimateEffects() {
+        // Gradual recovery from disasters
+        this.toxicity = Math.max(0, this.toxicity - 0.0001);
+        this.radiation = Math.max(0, this.radiation - 0.0002);
+        this.oxygenLevel = Math.max(0.5, Math.min(1.0, this.oxygenLevel + (Math.random() - 0.5) * 0.001));
+        
+        // Remove temporary hazard zones
+        this.hazardZones = this.hazardZones.filter(hazard => {
+            if (hazard.temporary) {
+                hazard.lifetime--;
+                return hazard.lifetime > 0;
+            }
+            return true;
+        });
+    }
+
+    getEnvironmentalPressures() {
+        return {
+            temperature: this.temperature,
+            humidity: this.humidity,
+            toxicity: this.toxicity,
+            radiation: this.radiation,
+            oxygenLevel: this.oxygenLevel,
+            resourceAvailability: this.resourceAvailability,
+            season: this.season,
+            activeDisasters: this.disasters.length,
+            disasterTypes: this.disasters.map(d => d.type)
+        };
     }
 
     // Check if a cell collides with any obstacle

@@ -77,6 +77,57 @@
                 </div>
             </div>
 
+            <!-- God Mode Panel -->
+            <div id="godModePanel">
+                <h3>🌟 God Mode Controls</h3>
+                <div class="god-controls">
+                    <div class="god-section">
+                        <h4>🍎 Resources</h4>
+                        <button class="god-btn" id="spawnFood">Drop Food</button>
+                        <button class="god-btn" id="famine">Cause Famine</button>
+                        <button class="god-btn" id="abundance">Create Abundance</button>
+                    </div>
+                    
+                    <div class="god-section">
+                        <h4>☄️ Disasters</h4>
+                        <button class="god-btn" id="meteor">Meteor Strike</button>
+                        <button class="god-btn" id="plague">Plague Outbreak</button>
+                        <button class="god-btn" id="toxicSpill">Toxic Spill</button>
+                        <button class="god-btn" id="radiation">Radiation Storm</button>
+                    </div>
+                    
+                    <div class="god-section">
+                        <h4>🌡️ Climate</h4>
+                        <button class="god-btn" id="heatwave">Heat Wave</button>
+                        <button class="god-btn" id="iceage">Ice Age</button>
+                        <button class="god-btn" id="normalClimate">Restore Normal</button>
+                    </div>
+                    
+                    <div class="god-section">
+                        <h4>🧬 Evolution</h4>
+                        <button class="god-btn" id="massExtinction">Mass Extinction</button>
+                        <button class="god-btn" id="mutationBoost">Mutation Boost</button>
+                        <button class="god-btn" id="superCell">Create Super Cell</button>
+                    </div>
+                    
+                    <div class="god-section">
+                        <h4>🌍 Environment</h4>
+                        <div class="slider-control">
+                            <label>Temperature: <span id="tempValue">50%</span></label>
+                            <input type="range" id="tempSlider" min="0" max="100" value="50">
+                        </div>
+                        <div class="slider-control">
+                            <label>Toxicity: <span id="toxicValue">0%</span></label>
+                            <input type="range" id="toxicSlider" min="0" max="100" value="0">
+                        </div>
+                        <div class="slider-control">
+                            <label>Radiation: <span id="radiationValue">0%</span></label>
+                            <input type="range" id="radiationSlider" min="0" max="100" value="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="infoPanel">
                 <div id="stats">
                     <h3>📊 Population Stats</h3>

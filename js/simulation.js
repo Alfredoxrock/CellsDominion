@@ -38,7 +38,15 @@ class Simulation {
             winnersPerRound: 8, // More winners for larger populations
             roundDuration: 3000,
             virusSpawnRate: 0.008, // Chance per tick to spawn a virus (about 1 every 2 seconds)
-            maxViruses: 10 // Maximum number of viruses at once
+            maxViruses: 10, // Maximum number of viruses at once
+            
+            // Natural Selection Settings
+            naturalSelectionEnabled: true,
+            fitnessBasedSurvival: true,
+            selectionPressure: 0.1, // How strong natural selection is (0-1)
+            traitStabilization: 1000, // Ticks before traits stabilize in population
+            geneticDrift: 0.05, // Random genetic changes over time
+            environmentalPressure: 0.15 // How much environment affects selection
         };
 
         // Statistics
@@ -143,11 +151,15 @@ class Simulation {
         // Check for round progression
         this.updateRoundSystem();
 
-        // Generate environmental conditions
+        // Update environment with seasonal changes and disasters
+        this.environment.update();
+        
+        // Generate environmental conditions with new pressures
         const environment = this.generateEnvironment();
+        const environmentalPressures = this.environment.getEnvironmentalPressures();
 
-        // Update food system
-        this.foodManager.update();
+        // Update food system with environmental modifiers
+        this.updateFoodSystem(environmentalPressures);
         const food = this.foodManager.getFood();
 
         // Track cells that need to be removed
@@ -156,6 +168,9 @@ class Simulation {
 
         // Update all cells with environmental effects
         this.cells.forEach((cell, index) => {
+            // Apply environmental damage and effects
+            this.applyEnvironmentalEffects(cell, environmentalPressures);
+            
             const isAlive = cell.update(this.cells, food, { width: this.width, height: this.height }, environment);
 
             // Track cell performance for round scoring
@@ -199,6 +214,11 @@ class Simulation {
 
         // Add new cells
         this.cells.push(...newCells);
+
+        // Apply natural selection if enabled
+        if (this.settings.naturalSelectionEnabled) {
+            this.applyNaturalSelection();
+        }
 
         // Update viruses
         this.updateViruses(food, environment);
@@ -285,6 +305,167 @@ class Simulation {
                 this.colonies.push(cell.colony);
             }
         });
+    }
+
+    updateFoodSystem(environmentalPressures) {
+        // Adjust food spawn rate based on environmental conditions
+        let foodModifier = environmentalPressures.resourceAvailability;
+        
+        // Seasonal effects on food
+        switch(environmentalPressures.season) {
+            case 'spring':
+                foodModifier *= 1.3; // Abundant growth
+                break;
+            case 'summer':
+                foodModifier *= 1.1; // Good conditions
+                break;
+            case 'autumn':
+                foodModifier *= 0.9; // Resources declining
+                break;
+            case 'winter':
+                foodModifier *= 0.6; // Scarce resources
+                break;
+        }
+        
+        // Environmental toxicity reduces food quality
+        foodModifier *= (1.0 - environmentalPressures.toxicity * 0.5);
+        
+        // Radiation affects food growth
+        foodModifier *= (1.0 - environmentalPressures.radiation * 0.3);
+        
+        // Update food manager with modified spawn rate
+        this.foodManager.setSpawnRate(this.settings.foodSpawnRate * foodModifier);
+        this.foodManager.update();
+    }
+
+    applyEnvironmentalEffects(cell, pressures) {
+        let damageDealt = false;
+        
+        // Temperature effects
+        const tempTolerance = cell.traits.temperatureTolerance || 0.5;
+        const tempStress = Math.abs(pressures.temperature - tempTolerance);
+        if (tempStress > 0.3) {
+            const tempDamage = (tempStress - 0.3) * 2;
+            cell.traits.health -= tempDamage;
+            cell.traits.energy -= tempDamage * 0.5;
+            damageDealt = true;
+        }
+        
+        // Toxicity effects
+        const toxinResistance = cell.traits.toxinResistance || 0.0;
+        const toxinDamage = Math.max(0, pressures.toxicity - toxinResistance) * 3;
+        if (toxinDamage > 0) {
+            cell.traits.health -= toxinDamage;
+            damageDealt = true;
+        }
+        
+        // Radiation effects (causes random mutations)
+        const radiationResistance = cell.traits.radiationResistance || 0.0;
+        const radiationExposure = Math.max(0, pressures.radiation - radiationResistance);
+        if (radiationExposure > 0.1) {
+            cell.traits.health -= radiationExposure * 2;
+            
+            // Chance for radiation-induced mutations
+            if (Math.random() < radiationExposure * 0.1) {
+                this.applyRadiationMutation(cell);
+            }
+            damageDealt = true;
+        }
+        
+        // Oxygen level effects
+        if (pressures.oxygenLevel < 0.8) {
+            const oxygenStress = (0.8 - pressures.oxygenLevel) * 4;
+            cell.traits.energy -= oxygenStress;
+            cell.traits.speed *= (0.8 + pressures.oxygenLevel * 0.2); // Reduced mobility
+        }
+        
+        // Disaster effects
+        pressures.disasterTypes.forEach(disasterType => {
+            this.applyDisasterEffects(cell, disasterType);
+        });
+        
+        // Visual feedback for environmental damage
+        if (damageDealt && Math.random() < 0.1) {
+            this.addEnvironmentalDamageEffect(cell, pressures);
+        }
+    }
+
+    applyRadiationMutation(cell) {
+        // Radiation causes random trait changes
+        const traits = Object.keys(cell.traits);
+        const randomTrait = traits[Math.floor(Math.random() * traits.length)];
+        
+        switch(randomTrait) {
+            case 'size':
+                cell.traits.size = Math.max(4, Math.min(20, 
+                    cell.traits.size + (Math.random() - 0.5) * 6));
+                break;
+            case 'speed':
+                cell.traits.speed = Math.max(0.2, Math.min(3.0, 
+                    cell.traits.speed + (Math.random() - 0.5) * 1.0));
+                break;
+            case 'maxHealth':
+                const oldHealth = cell.traits.maxHealth;
+                cell.traits.maxHealth = Math.max(40, Math.min(160, 
+                    oldHealth + (Math.random() - 0.5) * 30));
+                // Adjust current health proportionally
+                cell.traits.health = (cell.traits.health / oldHealth) * cell.traits.maxHealth;
+                break;
+        }
+        
+        console.log(`☢️ ${cell.name} mutated from radiation exposure!`);
+    }
+
+    applyDisasterEffects(cell, disasterType) {
+        switch(disasterType) {
+            case 'meteor':
+                // Increased chance of physical damage from debris
+                if (Math.random() < 0.01) {
+                    cell.traits.health -= 5 + Math.random() * 10;
+                }
+                break;
+                
+            case 'plague':
+                // Increased infection spread rate
+                if (!cell.isInfected && Math.random() < 0.005) {
+                    cell.isInfected = true;
+                    cell.infectionTimer = 300 + Math.random() * 200;
+                    cell.infectionSeverity = 0.5 + Math.random() * 0.5;
+                }
+                break;
+                
+            case 'drought':
+                // Increased energy consumption
+                cell.traits.energy -= 0.5;
+                break;
+                
+            case 'flood':
+                // Reduced movement speed
+                cell.traits.speed *= 0.95;
+                break;
+        }
+    }
+
+    addEnvironmentalDamageEffect(cell, pressures) {
+        // Add visual particles for environmental damage
+        const effectColor = pressures.toxicity > 0.3 ? '#00ff00' :
+                           pressures.radiation > 0.3 ? '#ffff00' :
+                           pressures.temperature > 0.8 ? '#ff6600' :
+                           pressures.temperature < 0.2 ? '#66ccff' : '#ffffff';
+        
+        for (let i = 0; i < 3; i++) {
+            cell.particleEffects.push({
+                x: cell.x + (Math.random() - 0.5) * cell.radius * 2,
+                y: cell.y + (Math.random() - 0.5) * cell.radius * 2,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                size: 1 + Math.random() * 2,
+                life: 20,
+                maxLife: 20,
+                color: effectColor,
+                type: 'environmental'
+            });
+        }
     }
 
     applyPoisonEffects() {
@@ -466,47 +647,280 @@ class Simulation {
         cell.roundStats.lastX = cell.x;
         cell.roundStats.lastY = cell.y;
 
-        // Calculate fitness score
-        cell.roundStats.fitnessScore = this.calculateFitnessScore(cell);
+        // Calculate evolutionary fitness score
+        const fitnessScore = this.calculateEvolutionaryFitness(cell);
+        cell.roundStats.fitnessScore = fitnessScore;
+        cell.fitnessScore = fitnessScore;
+
+        // Update genetic expression based on current performance
+        cell.geneExpression = cell.calculateGeneExpression();
+
+        // Track environmental adaptation
+        this.trackEnvironmentalAdaptation(cell);
     }
 
-    calculateFitnessScore(cell) {
+    calculateEvolutionaryFitness(cell) {
         const stats = cell.roundStats;
         let score = 0;
 
-        // Survival bonus (most important)
-        score += stats.survivalTime * 2;
+        // Survival bonus (most important for natural selection)
+        score += stats.survivalTime * 3;
 
-        // Health bonus
-        score += (cell.traits.health / cell.traits.maxHealth) * 100;
+        // Reproductive success (key evolutionary factor)
+        if (cell.reproduced) {
+            score += 100; // Big bonus for successful reproduction
+        }
 
-        // Energy bonus  
-        score += (cell.traits.energy / cell.traits.maxEnergy) * 50;
+        // Health maintenance (indicates good genes)
+        const healthRatio = cell.traits.health / cell.traits.maxHealth;
+        score += healthRatio * 50;
 
-        // Food consumption bonus
-        score += stats.foodEaten * 25;
+        // Energy efficiency (metabolic fitness)
+        const energyRatio = cell.traits.energy / cell.traits.maxEnergy;
+        score += energyRatio * 30;
 
-        // Combat performance
-        score += stats.combatWins * 50;
-        score -= stats.damageTaken * 0.5;
+        // Colony contribution (social fitness)
+        if (cell.colony) {
+            score += cell.colony.members.length * 5; // Bonus for larger colonies
+            if (cell.isColonyFounder) {
+                score += 25; // Extra bonus for colony founders
+            }
+        }
 
-        // Movement bonus (exploration)
-        score += Math.min(stats.distanceTraveled * 0.1, 100);
+        // Environmental adaptation bonuses
+        if (cell.isInfected && cell.traits.toxinResistance > 0.6) {
+            score += 20; // Bonus for virus resistance
+        }
 
-        // Size and age bonuses
-        score += cell.traits.size * 5;
-        score += cell.age * 0.1;
+        // Role specialization effectiveness
+        if (cell.colonyRole === 'sedentary' && cell.colony) {
+            // Sedentary cells judged on colony stability
+            const avgDistance = this.calculateAverageColonyDistance(cell.colony);
+            if (avgDistance < 50) score += 15; // Bonus for tight clusters
+        } else if (cell.colonyRole === 'adventurer') {
+            // Adventurers judged on exploration and resource gathering
+            score += Math.min(stats.distanceTraveled / 10, 30); // Max 30 points for exploration
+            score += stats.foodEaten * 2; // Resource gathering bonus
+        }
+
+        // Genetic diversity bonus (promotes mutation)
+        const mutationCount = cell.mutationHistory ? cell.mutationHistory.length : 0;
+        score += Math.min(mutationCount * 2, 10);
+
+        // Age penalty for elder cells (promotes generational turnover)
+        if (cell.age > cell.elderAge) {
+            score *= 0.8;
+        }
+
+        // Apply any fitness bonuses from beneficial mutations
+        score += (cell.traits.fitnessBonus || 0) * 100;
 
         return Math.max(0, score);
+    }
+
+    trackEnvironmentalAdaptation(cell) {
+        // Track how well cells adapt to current environmental pressures
+        const environment = {
+            virusCount: this.viruses.length,
+            foodScarcity: this.foodManager.getFood().length < 50,
+            populationDensity: this.cells.length / (this.width * this.height / 10000),
+            averageFitness: this.cells.reduce((sum, c) => sum + (c.fitnessScore || 0), 0) / this.cells.length
+        };
+
+        // Update cell's environmental fitness based on current conditions
+        if (environment.virusCount > 5 && cell.traits.toxinResistance > 0.7) {
+            cell.fitnessScore += 5; // Bonus during viral outbreaks
+        }
+
+        if (environment.foodScarcity && cell.traits.size < 10) {
+            cell.fitnessScore += 3; // Bonus for small size during food scarcity
+        }
+
+        if (environment.populationDensity > 0.1 && cell.colonyRole === 'sedentary') {
+            cell.fitnessScore += 2; // Bonus for colony formation in crowded areas
+        }
+    }
+
+    calculateAverageColonyDistance(colony) {
+        if (!colony || colony.members.length < 2) return 0;
+
+        let totalDistance = 0;
+        let pairCount = 0;
+
+        for (let i = 0; i < colony.members.length; i++) {
+            for (let j = i + 1; j < colony.members.length; j++) {
+                const distance = colony.members[i].distanceTo(colony.members[j]);
+                totalDistance += distance;
+                pairCount++;
+            }
+        }
+
+        return pairCount > 0 ? totalDistance / pairCount : 0;
+    }
+
+    applyNaturalSelection() {
+        // Only apply selection pressure when population is above target
+        const targetPopulation = this.settings.maxCells * 0.8; // 80% of max capacity
+        
+        if (this.cells.length > targetPopulation) {
+            // Calculate survival probability based on fitness
+            const cellsWithFitness = this.cells.map(cell => ({
+                cell: cell,
+                fitness: cell.fitnessScore || 0,
+                age: cell.age,
+                health: cell.traits.health / cell.traits.maxHealth
+            }));
+
+            // Sort by fitness (highest first)
+            cellsWithFitness.sort((a, b) => b.fitness - a.fitness);
+
+            // Determine how many cells to remove
+            const excessCells = this.cells.length - targetPopulation;
+            const removalCandidates = cellsWithFitness.slice(-excessCells * 2); // Consider bottom 2x cells
+
+            // Apply selection pressure with some randomness
+            const cellsToRemove = [];
+            
+            removalCandidates.forEach((candidate, index) => {
+                const survivalProbability = this.calculateSurvivalProbability(candidate, removalCandidates);
+                
+                if (Math.random() > survivalProbability && cellsToRemove.length < excessCells) {
+                    cellsToRemove.push(candidate.cell);
+                }
+            });
+
+            // Remove the least fit cells
+            cellsToRemove.forEach(cell => {
+                const index = this.cells.indexOf(cell);
+                if (index > -1) {
+                    // Convert dead cell to food
+                    this.foodManager.spawnFromDeath(cell.x, cell.y, cell.traits.size);
+                    this.cells.splice(index, 1);
+                }
+            });
+
+            if (cellsToRemove.length > 0) {
+                console.log(`🧬 Natural selection removed ${cellsToRemove.length} less fit cells`);
+                this.trackEvolutionaryPressure(cellsToRemove);
+            }
+        }
+
+        // Track trait frequency changes over time
+        this.trackTraitEvolution();
+    }
+
+    calculateSurvivalProbability(candidate, allCandidates) {
+        const avgFitness = allCandidates.reduce((sum, c) => sum + c.fitness, 0) / allCandidates.length;
+        const fitnessRatio = candidate.fitness / (avgFitness + 1); // Avoid division by zero
+
+        // Base survival probability based on fitness
+        let probability = Math.min(fitnessRatio, 2.0) / 2.0; // Normalize to 0-1
+
+        // Age factor - very old cells are more likely to die
+        if (candidate.age > candidate.cell.elderAge) {
+            probability *= 0.7;
+        }
+
+        // Health factor
+        probability *= candidate.health;
+
+        // Environmental adaptation bonus
+        if (candidate.cell.colony && candidate.cell.colonyRole === 'sedentary') {
+            probability *= 1.1; // Slight bonus for colony stability
+        }
+
+        // Apply selection pressure
+        const selectionStrength = this.settings.selectionPressure;
+        probability = 1 - ((1 - probability) * (1 + selectionStrength));
+
+        return Math.max(0.1, Math.min(0.95, probability)); // Keep bounds reasonable
+    }
+
+    trackEvolutionaryPressure(removedCells) {
+        // Analyze what traits were selected against
+        const removedTraits = {
+            avgSize: 0,
+            avgSpeed: 0,
+            avgHealth: 0,
+            commonDefense: {},
+            commonShape: {}
+        };
+
+        removedCells.forEach(cell => {
+            removedTraits.avgSize += cell.traits.size;
+            removedTraits.avgSpeed += cell.traits.speed;
+            removedTraits.avgHealth += cell.traits.maxHealth;
+            
+            removedTraits.commonDefense[cell.traits.defenseType] = 
+                (removedTraits.commonDefense[cell.traits.defenseType] || 0) + 1;
+            removedTraits.commonShape[cell.traits.shape] = 
+                (removedTraits.commonShape[cell.traits.shape] || 0) + 1;
+        });
+
+        removedTraits.avgSize /= removedCells.length;
+        removedTraits.avgSpeed /= removedCells.length;
+        removedTraits.avgHealth /= removedCells.length;
+
+        // Store for evolution tracking
+        this.evolutionHistory = this.evolutionHistory || [];
+        this.evolutionHistory.push({
+            generation: this.generation,
+            tick: this.tick,
+            removedTraits: removedTraits,
+            populationSize: this.cells.length,
+            avgFitness: this.cells.reduce((sum, c) => sum + (c.fitnessScore || 0), 0) / this.cells.length
+        });
+
+        // Keep only recent history to prevent memory bloat
+        if (this.evolutionHistory.length > 100) {
+            this.evolutionHistory.shift();
+        }
+    }
+
+    trackTraitEvolution() {
+        // Update trait frequency statistics every 100 ticks
+        if (this.tick % 100 === 0) {
+            const traitCounts = {
+                defense: {},
+                shape: {},
+                social: {},
+                ability: {}
+            };
+
+            this.cells.forEach(cell => {
+                traitCounts.defense[cell.traits.defenseType] = 
+                    (traitCounts.defense[cell.traits.defenseType] || 0) + 1;
+                traitCounts.shape[cell.traits.shape] = 
+                    (traitCounts.shape[cell.traits.shape] || 0) + 1;
+                traitCounts.social[cell.traits.socialBehavior] = 
+                    (traitCounts.social[cell.traits.socialBehavior] || 0) + 1;
+                traitCounts.ability[cell.traits.specialAbility] = 
+                    (traitCounts.ability[cell.traits.specialAbility] || 0) + 1;
+            });
+
+            this.traitFrequencies = this.traitFrequencies || [];
+            this.traitFrequencies.push({
+                generation: this.generation,
+                tick: this.tick,
+                traits: traitCounts,
+                totalCells: this.cells.length
+            });
+
+            // Keep only recent data
+            if (this.traitFrequencies.length > 50) {
+                this.traitFrequencies.shift();
+            }
+        }
     }
 
     endRound() {
         console.log(`🏆 Round ${this.currentRound} ended!`);
 
-        // Calculate final scores for all surviving cells
+        // Calculate final evolutionary fitness scores for all surviving cells
         this.cells.forEach(cell => {
             if (cell.roundStats) {
-                cell.roundStats.fitnessScore = this.calculateFitnessScore(cell);
+                cell.roundStats.fitnessScore = this.calculateEvolutionaryFitness(cell);
+                cell.fitnessScore = cell.roundStats.fitnessScore;
             }
         });
 

@@ -284,6 +284,13 @@ class Cell {
         this.maxDistanceFromHome = 100; // How far adventurers can roam
         this.explorationTarget = null;
 
+        // Genetic system - DNA-like genetic code
+        this.dna = traits.dna || this.generateDNA();
+        this.geneticHistory = traits.geneticHistory || []; // Track evolutionary history
+        this.fitnessScore = 0; // Current evolutionary fitness
+        this.mutationHistory = traits.mutationHistory || []; // Track all mutations
+        this.geneExpression = this.calculateGeneExpression(); // How genes are expressed
+
         // Round tournament stats
         this.roundStats = {
             survivalTime: 0,
@@ -377,29 +384,140 @@ class Cell {
     }
 
     determineInitialRole() {
-        // Determine initial colony role based on traits
+        // Determine initial colony role based on traits with advanced specialization
         const speed = this.traits.speed;
+        const size = this.traits.size;
+        const health = this.traits.maxHealth;
+        const energy = this.traits.maxEnergy;
         const socialBehavior = this.traits.socialBehavior;
         const specialAbility = this.traits.specialAbility;
+        const defenseType = this.traits.defenseType;
 
-        // Adventurers are typically faster, pack hunters, or migratory
-        if (speed > 2.5 ||
-            socialBehavior === 'pack' ||
-            specialAbility === 'migratory' ||
-            specialAbility === 'pack_hunter') {
-            return Math.random() < 0.7 ? 'adventurer' : 'sedentary';
+        // Advanced colony castes with specific roles
+        const roleScores = {
+            warrior: 0,
+            worker: 0,
+            breeder: 0,
+            scout: 0,
+            guardian: 0,
+            builder: 0
+        };
+
+        // Warrior traits: high health, combat-oriented defenses
+        if (health > 120 && (defenseType === 'spikes' || defenseType === 'armor' || defenseType === 'electric')) {
+            roleScores.warrior += 3;
+        }
+        if (socialBehavior === 'aggressive') roleScores.warrior += 2;
+        if (size > 15) roleScores.warrior += 1;
+
+        // Worker traits: efficient metabolism, medium stats
+        if (specialAbility === 'photosynthesis' || this.traits.metabolismType === 'efficient') {
+            roleScores.worker += 3;
+        }
+        if (socialBehavior === 'cooperative') roleScores.worker += 2;
+        if (size >= 8 && size <= 14) roleScores.worker += 1; // Medium size optimal
+
+        // Breeder traits: high energy, reproductive focus
+        if (energy > 100 && health > 100) {
+            roleScores.breeder += 3;
+        }
+        if (this.traits.temperatureTolerance > 0.6) roleScores.breeder += 1;
+        if (size > 12) roleScores.breeder += 1; // Larger for reproduction
+
+        // Scout traits: high speed, vision, exploration abilities
+        if (speed > 2.0 && this.traits.visionRange > 80) {
+            roleScores.scout += 3;
+        }
+        if (specialAbility === 'migratory' || specialAbility === 'leaping') {
+            roleScores.scout += 2;
+        }
+        if (size < 10) roleScores.scout += 1; // Smaller for speed
+
+        // Guardian traits: defensive focus, territorial
+        if (defenseType === 'barrier' || defenseType === 'shield' || defenseType === 'poison') {
+            roleScores.guardian += 2;
+        }
+        if (socialBehavior === 'territorial') roleScores.guardian += 2;
+        if (this.traits.visionRange > 70) roleScores.guardian += 1;
+
+        // Builder traits: construction and colony formation
+        if (specialAbility === 'fusion' || socialBehavior === 'cooperative') {
+            roleScores.builder += 2;
+        }
+        if (size >= 12 && energy > 90) roleScores.builder += 1;
+
+        // Find the highest scoring role
+        let bestRole = 'worker'; // Default role
+        let highestScore = roleScores.worker;
+
+        Object.entries(roleScores).forEach(([role, score]) => {
+            if (score > highestScore) {
+                highestScore = score;
+                bestRole = role;
+            }
+        });
+
+        // Add some randomness to prevent too much determinism
+        if (Math.random() < 0.2) {
+            const roles = Object.keys(roleScores);
+            bestRole = roles[Math.floor(Math.random() * roles.length)];
         }
 
-        // Sedentary cells are territorial, have defensive abilities, or photosynthetic
-        if (socialBehavior === 'territorial' ||
-            this.traits.defenseType !== 'none' ||
-            specialAbility === 'photosynthesis' ||
-            specialAbility === 'burrowing') {
-            return Math.random() < 0.7 ? 'sedentary' : 'adventurer';
-        }
+        return bestRole;
+    }
 
-        // Default: random with slight bias toward adventurer
-        return Math.random() < 0.6 ? 'adventurer' : 'sedentary';
+    generateDNA() {
+        // Generate a simplified DNA string representing genetic traits
+        const genes = {
+            size: this.generateGeneCode(this.traits.size, 4, 20),
+            speed: this.generateGeneCode(this.traits.speed, 0.2, 3.0),
+            health: this.generateGeneCode(this.traits.maxHealth, 40, 160),
+            energy: this.generateGeneCode(this.traits.maxEnergy, 40, 120),
+            vision: this.generateGeneCode(this.traits.visionRange, 20, 120),
+            toxinRes: this.generateGeneCode(this.traits.toxinResistance, 0, 0.9),
+            tempTol: this.generateGeneCode(this.traits.temperatureTolerance, 0.1, 0.9),
+            social: this.encodeTraitString(this.traits.socialBehavior),
+            defense: this.encodeTraitString(this.traits.defenseType),
+            shape: this.encodeTraitString(this.traits.shape),
+            ability: this.encodeTraitString(this.traits.specialAbility)
+        };
+        
+        return genes;
+    }
+
+    generateGeneCode(value, minVal, maxVal) {
+        // Convert numeric trait to genetic code (0-255 range)
+        const normalized = (value - minVal) / (maxVal - minVal);
+        const geneValue = Math.round(normalized * 255);
+        return Math.max(0, Math.min(255, geneValue));
+    }
+
+    encodeTraitString(trait) {
+        // Convert string traits to numeric genetic codes
+        const hash = trait.split('').reduce((a, b) => {
+            a = ((a << 5) - a) + b.charCodeAt(0);
+            return a & a; // 32-bit integer
+        }, 0);
+        return Math.abs(hash) % 256;
+    }
+
+    calculateGeneExpression() {
+        // Determine how genes are expressed based on environmental factors and age
+        const expression = {};
+        
+        // Age affects gene expression
+        const ageModifier = this.age < this.maturityAge ? 0.8 : 
+                           this.age < this.elderAge ? 1.0 : 0.9;
+        
+        // Health affects gene expression
+        const healthModifier = this.traits.health / this.traits.maxHealth;
+        
+        // Calculate expression levels for each gene
+        Object.keys(this.dna).forEach(gene => {
+            expression[gene] = (this.dna[gene] / 255) * ageModifier * healthModifier;
+        });
+        
+        return expression;
     }
 
     calculateMass() {
@@ -1428,51 +1546,215 @@ class Cell {
     }
 
     applyRoleBasedMovement() {
-        if (this.colonyRole === 'sedentary') {
-            // Sedentary cells stay near their home position
-            const distanceFromHome = Math.sqrt(
-                (this.x - this.homePosition.x) ** 2 +
-                (this.y - this.homePosition.y) ** 2
-            );
+        switch(this.colonyRole) {
+            case 'warrior':
+                this.applyWarriorBehavior();
+                break;
+            case 'worker':
+                this.applyWorkerBehavior();
+                break;
+            case 'breeder':
+                this.applyBreederBehavior();
+                break;
+            case 'scout':
+                this.applyScoutBehavior();
+                break;
+            case 'guardian':
+                this.applyGuardianBehavior();
+                break;
+            case 'builder':
+                this.applyBuilderBehavior();
+                break;
+            default:
+                // Default random movement for unspecialized cells
+                this.vx += (Math.random() - 0.5) * 0.1;
+                this.vy += (Math.random() - 0.5) * 0.1;
+        }
+    }
 
-            if (distanceFromHome > 50) {
-                // Return towards home
-                this.moveTowards(this.homePosition.x, this.homePosition.y);
+    applyWarriorBehavior() {
+        // Warriors patrol colony perimeter and seek combat
+        if (this.colony) {
+            const center = this.getColonyCenter();
+            const distanceFromCenter = Math.sqrt(
+                (this.x - center.x) ** 2 + (this.y - center.y) ** 2
+            );
+            
+            // Patrol at medium distance from colony center
+            const idealPatrolDistance = 80;
+            if (distanceFromCenter < idealPatrolDistance * 0.8) {
+                // Move outward to patrol position
+                const angle = Math.atan2(this.y - center.y, this.x - center.x);
+                const targetX = center.x + Math.cos(angle) * idealPatrolDistance;
+                const targetY = center.y + Math.sin(angle) * idealPatrolDistance;
+                this.moveTowards(targetX, targetY);
+            } else if (distanceFromCenter > idealPatrolDistance * 1.2) {
+                // Move back toward colony
+                this.moveTowards(center.x, center.y);
             } else {
-                // Small random movements around home
-                this.vx += (Math.random() - 0.5) * 0.05;
-                this.vy += (Math.random() - 0.5) * 0.05;
+                // Patrol in circular pattern
+                this.patrolAngle = (this.patrolAngle || 0) + 0.02;
+                const patrolX = center.x + Math.cos(this.patrolAngle) * idealPatrolDistance;
+                const patrolY = center.y + Math.sin(this.patrolAngle) * idealPatrolDistance;
+                this.moveTowards(patrolX, patrolY);
             }
-        } else if (this.colonyRole === 'adventurer') {
-            // Adventurers explore more actively
-            if (!this.explorationTarget || Math.random() < 0.01) {
-                // Set new exploration target
+        } else {
+            // No colony - aggressive exploration
+            this.vx += (Math.random() - 0.5) * 0.3;
+            this.vy += (Math.random() - 0.5) * 0.3;
+        }
+    }
+
+    applyWorkerBehavior() {
+        // Workers focus on resource gathering and stay near colony
+        if (this.colony) {
+            const center = this.getColonyCenter();
+            const distanceFromCenter = Math.sqrt(
+                (this.x - center.x) ** 2 + (this.y - center.y) ** 2
+            );
+            
+            if (distanceFromCenter > 60) {
+                // Return to work area near colony
+                this.moveTowards(center.x, center.y);
+            } else {
+                // Small work movements in colony area
+                this.vx += (Math.random() - 0.5) * 0.08;
+                this.vy += (Math.random() - 0.5) * 0.08;
+            }
+        } else {
+            // Look for colony to join or food to gather
+            this.vx += (Math.random() - 0.5) * 0.06;
+            this.vy += (Math.random() - 0.5) * 0.06;
+        }
+    }
+
+    applyBreederBehavior() {
+        // Breeders stay at the safest part of colony and focus on reproduction
+        if (this.colony) {
+            const center = this.getColonyCenter();
+            const distanceFromCenter = Math.sqrt(
+                (this.x - center.x) ** 2 + (this.y - center.y) ** 2
+            );
+            
+            if (distanceFromCenter > 30) {
+                // Stay very close to colony center for safety
+                this.moveTowards(center.x, center.y);
+            } else {
+                // Minimal movement to conserve energy for reproduction
+                this.vx += (Math.random() - 0.5) * 0.03;
+                this.vy += (Math.random() - 0.5) * 0.03;
+            }
+        } else {
+            // Seek colony to join for breeding
+            this.vx += (Math.random() - 0.5) * 0.08;
+            this.vy += (Math.random() - 0.5) * 0.08;
+        }
+    }
+
+    applyScoutBehavior() {
+        // Scouts explore far from colony and report back
+        const maxScoutDistance = 200;
+        
+        if (!this.scoutTarget || Math.random() < 0.02) {
+            // Set new distant exploration target
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 80 + Math.random() * maxScoutDistance;
+            const baseX = this.colony ? this.getColonyCenter().x : this.homePosition.x;
+            const baseY = this.colony ? this.getColonyCenter().y : this.homePosition.y;
+            
+            this.scoutTarget = {
+                x: baseX + Math.cos(angle) * distance,
+                y: baseY + Math.sin(angle) * distance
+            };
+        }
+        
+        if (this.scoutTarget) {
+            const distanceToTarget = Math.sqrt(
+                (this.x - this.scoutTarget.x) ** 2 + (this.y - this.scoutTarget.y) ** 2
+            );
+            
+            if (distanceToTarget > 25) {
+                this.moveTowards(this.scoutTarget.x, this.scoutTarget.y);
+            } else {
+                this.scoutTarget = null; // Reached target, get new one
+            }
+        }
+    }
+
+    applyGuardianBehavior() {
+        // Guardians watch for threats and defend specific areas
+        if (this.colony) {
+            const center = this.getColonyCenter();
+            const guardDistance = 50;
+            
+            // Position at fixed guard distance from colony
+            if (!this.guardPosition) {
                 const angle = Math.random() * Math.PI * 2;
-                const distance = 100 + Math.random() * this.maxDistanceFromHome;
-                this.explorationTarget = {
-                    x: this.homePosition.x + Math.cos(angle) * distance,
-                    y: this.homePosition.y + Math.sin(angle) * distance
+                this.guardPosition = {
+                    x: center.x + Math.cos(angle) * guardDistance,
+                    y: center.y + Math.sin(angle) * guardDistance
                 };
             }
+            
+            const distanceToPost = Math.sqrt(
+                (this.x - this.guardPosition.x) ** 2 + (this.y - this.guardPosition.y) ** 2
+            );
+            
+            if (distanceToPost > 15) {
+                this.moveTowards(this.guardPosition.x, this.guardPosition.y);
+            } else {
+                // Stay vigilant with minimal movement
+                this.vx += (Math.random() - 0.5) * 0.02;
+                this.vy += (Math.random() - 0.5) * 0.02;
+            }
+        } else {
+            // Defensive movement while looking for colony
+            this.vx += (Math.random() - 0.5) * 0.05;
+            this.vy += (Math.random() - 0.5) * 0.05;
+        }
+    }
 
-            if (this.explorationTarget) {
-                const distanceToTarget = Math.sqrt(
-                    (this.x - this.explorationTarget.x) ** 2 +
-                    (this.y - this.explorationTarget.y) ** 2
-                );
-
-                if (distanceToTarget > 20) {
-                    this.moveTowards(this.explorationTarget.x, this.explorationTarget.y);
+    applyBuilderBehavior() {
+        // Builders move around colony to strengthen bonds and expand
+        if (this.colony) {
+            // Move between colony members to strengthen bonds
+            const members = this.colony.members.filter(m => m !== this);
+            if (members.length > 0) {
+                const target = members[Math.floor(Math.random() * members.length)];
+                const distance = this.distanceTo(target);
+                
+                if (distance > 40) {
+                    this.moveTowards(target.x, target.y);
+                } else if (distance < 25) {
+                    // Too close, move away slightly
+                    this.moveTowards(this.x + (this.x - target.x) * 0.1, this.y + (this.y - target.y) * 0.1);
                 } else {
-                    // Reached target, clear it to get new one
-                    this.explorationTarget = null;
+                    // Good distance, small adjustments
+                    this.vx += (Math.random() - 0.5) * 0.04;
+                    this.vy += (Math.random() - 0.5) * 0.04;
                 }
             }
         } else {
-            // Default random movement for unspecialized cells
+            // Moderate exploration to find building opportunities
             this.vx += (Math.random() - 0.5) * 0.1;
             this.vy += (Math.random() - 0.5) * 0.1;
         }
+    }
+
+    getColonyCenter() {
+        if (!this.colony || this.colony.members.length === 0) {
+            return this.homePosition || { x: this.x, y: this.y };
+        }
+        
+        const center = { x: 0, y: 0 };
+        this.colony.members.forEach(member => {
+            center.x += member.x;
+            center.y += member.y;
+        });
+        
+        center.x /= this.colony.members.length;
+        center.y /= this.colony.members.length;
+        return center;
     }
 
     seekFood(food) {
@@ -2497,108 +2779,164 @@ class Cell {
         ctx.setLineDash([]);
     }
 
-    // Mutation for reproduction
+    // Advanced mutation system with genetic inheritance
     mutate(mutationRate) {
         const newTraits = { ...this.traits };
         newTraits.generation = this.generation + 1;
+        
+        // Create DNA for offspring through inheritance and mutation
+        const newDNA = this.inheritAndMutateDNA(mutationRate);
+        const mutations = [];
 
-        // Basic physical traits mutations
+        // Apply DNA-based mutations with evolutionary pressure
         if (Math.random() < mutationRate) {
-            // Size mutation
-            newTraits.size = Math.max(4, Math.min(20, newTraits.size + (Math.random() - 0.5) * 4));
+            const sizeGene = this.decodeGeneToValue(newDNA.size, 4, 20);
+            if (Math.abs(sizeGene - newTraits.size) > 0.5) {
+                mutations.push({ trait: 'size', oldValue: newTraits.size, newValue: sizeGene });
+                newTraits.size = sizeGene;
+            }
         }
 
         if (Math.random() < mutationRate) {
-            // Speed mutation
-            newTraits.speed = Math.max(0.2, Math.min(3.0, newTraits.speed + (Math.random() - 0.5) * 0.6));
+            const speedGene = this.decodeGeneToValue(newDNA.speed, 0.2, 3.0);
+            if (Math.abs(speedGene - newTraits.speed) > 0.1) {
+                mutations.push({ trait: 'speed', oldValue: newTraits.speed, newValue: speedGene });
+                newTraits.speed = speedGene;
+            }
         }
 
         if (Math.random() < mutationRate) {
-            // Health mutation
-            newTraits.maxHealth = Math.max(40, Math.min(160, newTraits.maxHealth + (Math.random() - 0.5) * 20));
-            newTraits.health = newTraits.maxHealth;
+            const healthGene = this.decodeGeneToValue(newDNA.health, 40, 160);
+            if (Math.abs(healthGene - newTraits.maxHealth) > 5) {
+                mutations.push({ trait: 'maxHealth', oldValue: newTraits.maxHealth, newValue: healthGene });
+                newTraits.maxHealth = healthGene;
+                newTraits.health = healthGene;
+            }
         }
 
         if (Math.random() < mutationRate) {
-            // Energy mutation
-            newTraits.maxEnergy = Math.max(40, Math.min(120, newTraits.maxEnergy + (Math.random() - 0.5) * 20));
-            newTraits.energy = newTraits.maxEnergy * 0.8;
+            const energyGene = this.decodeGeneToValue(newDNA.energy, 40, 120);
+            if (Math.abs(energyGene - newTraits.maxEnergy) > 5) {
+                mutations.push({ trait: 'maxEnergy', oldValue: newTraits.maxEnergy, newValue: energyGene });
+                newTraits.maxEnergy = energyGene;
+                newTraits.energy = energyGene * 0.8;
+            }
         }
 
-        // Shape mutations
+        // Environmental tolerance mutations with natural selection pressure
+        if (Math.random() < mutationRate) {
+            const tempGene = this.decodeGeneToValue(newDNA.tempTol, 0.1, 0.9);
+            mutations.push({ trait: 'temperatureTolerance', oldValue: newTraits.temperatureTolerance, newValue: tempGene });
+            newTraits.temperatureTolerance = tempGene;
+        }
+
+        if (Math.random() < mutationRate) {
+            const toxinGene = this.decodeGeneToValue(newDNA.toxinRes, 0, 0.9);
+            mutations.push({ trait: 'toxinResistance', oldValue: newTraits.toxinResistance, newValue: toxinGene });
+            newTraits.toxinResistance = toxinGene;
+        }
+
+        // Complex trait mutations (shape, defense, abilities) with inheritance patterns
         if (Math.random() < mutationRate * 0.3) {
-            newTraits.shape = this.randomShape();
+            const shapes = ['circle', 'triangle', 'square', 'hexagon', 'oval', 'star', 'diamond'];
+            const newShape = shapes[newDNA.shape % shapes.length];
+            if (newShape !== newTraits.shape) {
+                mutations.push({ trait: 'shape', oldValue: newTraits.shape, newValue: newShape });
+                newTraits.shape = newShape;
+            }
         }
 
-        // Defense type mutations
         if (Math.random() < mutationRate * 0.4) {
-            newTraits.defenseType = this.randomDefenseType();
+            const defenseTypes = ['spikes', 'poison', 'armor', 'regen', 'camo', 'shield', 'electric', 'magnetic'];
+            const newDefense = defenseTypes[newDNA.defense % defenseTypes.length];
+            if (newDefense !== newTraits.defenseType) {
+                mutations.push({ trait: 'defenseType', oldValue: newTraits.defenseType, newValue: newDefense });
+                newTraits.defenseType = newDefense;
+            }
         }
 
-        // Special ability mutations
-        if (Math.random() < mutationRate * 0.3) {
-            newTraits.specialAbility = this.randomSpecialAbility();
-        }
+        // Record mutation history for evolutionary tracking
+        newTraits.dna = newDNA;
+        newTraits.mutationHistory = [...(this.mutationHistory || []), {
+            generation: newTraits.generation,
+            mutations: mutations,
+            parentFitness: this.fitnessScore,
+            mutationRate: mutationRate,
+            timestamp: Date.now()
+        }];
 
-        // Metabolism mutations
-        if (Math.random() < mutationRate * 0.2) {
-            newTraits.metabolismType = this.randomMetabolismType();
-        }
+        // Inherit genetic history
+        newTraits.geneticHistory = [...(this.geneticHistory || []), {
+            generation: this.generation,
+            traits: { ...this.traits },
+            fitness: this.fitnessScore,
+            survivalTime: this.age
+        }];
 
-        // Social behavior mutations
-        if (Math.random() < mutationRate * 0.25) {
-            newTraits.socialBehavior = this.randomSocialBehavior();
-        }
-
-        // Environmental tolerance mutations
-        if (Math.random() < mutationRate) {
-            newTraits.temperatureTolerance = Math.max(0.1, Math.min(0.9,
-                newTraits.temperatureTolerance + (Math.random() - 0.5) * 0.2));
-        }
-
-        if (Math.random() < mutationRate) {
-            newTraits.acidTolerance = Math.max(0.1, Math.min(0.9,
-                newTraits.acidTolerance + (Math.random() - 0.5) * 0.2));
-        }
-
-        if (Math.random() < mutationRate) {
-            newTraits.radiationResistance = Math.max(0.05, Math.min(0.8,
-                newTraits.radiationResistance + (Math.random() - 0.5) * 0.15));
-        }
-
-        // Sensory mutations
-        if (Math.random() < mutationRate) {
-            newTraits.visionRange = Math.max(20, Math.min(120,
-                newTraits.visionRange + (Math.random() - 0.5) * 20));
-        }
-
-        if (Math.random() < mutationRate) {
-            newTraits.communicationRange = Math.max(15, Math.min(100,
-                newTraits.communicationRange + (Math.random() - 0.5) * 15));
-        }
-
-        // Chemical and biological trait mutations
-        if (Math.random() < mutationRate) {
-            newTraits.pheromoneProduction = Math.max(0.0, Math.min(0.8,
-                newTraits.pheromoneProduction + (Math.random() - 0.5) * 0.2));
-        }
-
-        if (Math.random() < mutationRate) {
-            newTraits.toxinResistance = Math.max(0.0, Math.min(0.9,
-                newTraits.toxinResistance + (Math.random() - 0.5) * 0.2));
-        }
-
-        if (Math.random() < mutationRate) {
-            newTraits.magneticSensitivity = Math.max(0.0, Math.min(0.8,
-                newTraits.magneticSensitivity + (Math.random() - 0.5) * 0.15));
-        }
-
-        if (Math.random() < mutationRate) {
-            newTraits.electrogenesis = Math.max(0.0, Math.min(0.6,
-                newTraits.electrogenesis + (Math.random() - 0.5) * 0.1));
-        }
+        // Apply evolutionary pressure - beneficial mutations more likely to survive
+        this.applyEvolutionaryPressure(newTraits, mutations);
 
         return newTraits;
+    }
+
+    inheritAndMutateDNA(mutationRate) {
+        const newDNA = { ...this.dna };
+        
+        // Each gene has a chance to mutate
+        Object.keys(newDNA).forEach(gene => {
+            if (Math.random() < mutationRate * 0.5) { // 50% of base mutation rate for DNA
+                // Point mutations - change by small amounts
+                const change = Math.round((Math.random() - 0.5) * 20); // ±10 change
+                newDNA[gene] = Math.max(0, Math.min(255, newDNA[gene] + change));
+            }
+        });
+        
+        return newDNA;
+    }
+
+    decodeGeneToValue(geneCode, minVal, maxVal) {
+        const normalized = geneCode / 255;
+        return minVal + (normalized * (maxVal - minVal));
+    }
+
+    applyEvolutionaryPressure(newTraits, mutations) {
+        // Simulate natural selection by adjusting traits based on survival advantages
+        const environment = this.getCurrentEnvironmentalPressure();
+        
+        mutations.forEach(mutation => {
+            switch(mutation.trait) {
+                case 'size':
+                    // Smaller cells use less energy but are more vulnerable
+                    if (environment.energyScarcity && mutation.newValue < mutation.oldValue) {
+                        newTraits.fitnessBonus = (newTraits.fitnessBonus || 0) + 0.1;
+                    }
+                    break;
+                    
+                case 'speed':
+                    // Faster cells escape predators but use more energy
+                    if (environment.predatorPressure && mutation.newValue > mutation.oldValue) {
+                        newTraits.fitnessBonus = (newTraits.fitnessBonus || 0) + 0.15;
+                    }
+                    break;
+                    
+                case 'toxinResistance':
+                    // Higher toxin resistance helps in polluted environments
+                    if (environment.toxicity && mutation.newValue > mutation.oldValue) {
+                        newTraits.fitnessBonus = (newTraits.fitnessBonus || 0) + 0.2;
+                    }
+                    break;
+            }
+        });
+    }
+
+    getCurrentEnvironmentalPressure() {
+        // Analyze current environment to determine selection pressures
+        return {
+            energyScarcity: this.traits.energy < this.traits.maxEnergy * 0.3,
+            predatorPressure: this.nearbyThreats > 2,
+            toxicity: this.isInfected || (this.colony && this.colony.members.some(m => m.isInfected)),
+            competition: this.colony && this.colony.members.length > 8
+        };
     }
 
     // Create offspring
