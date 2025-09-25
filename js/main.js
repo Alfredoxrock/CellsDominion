@@ -17,6 +17,9 @@ class CellDefenseSimulator {
         this.worldWidth = 4000; // Large world size
         this.worldHeight = 3000;
 
+        // Generate starfield for space background
+        this.stars = this.generateStarfield(800); // 800 stars across the world
+
         // Game state
         this.isRunning = true;
         this.lastTime = 0;
@@ -353,9 +356,64 @@ class CellDefenseSimulator {
         }
     }
 
+    generateStarfield(numStars) {
+        const stars = [];
+        for (let i = 0; i < numStars; i++) {
+            stars.push({
+                x: Math.random() * this.worldWidth,
+                y: Math.random() * this.worldHeight,
+                size: Math.random() * 2 + 0.5, // 0.5 to 2.5 pixel radius
+                brightness: Math.random() * 0.8 + 0.2, // 0.2 to 1.0 opacity
+                twinkleSpeed: Math.random() * 0.02 + 0.01, // Twinkle rate
+                twinklePhase: Math.random() * Math.PI * 2
+            });
+        }
+        return stars;
+    }
+
+    drawStarfield() {
+        // Only draw stars that are visible in the current camera view
+        const viewLeft = this.camera.x;
+        const viewRight = this.camera.x + (this.canvas.width / this.camera.zoom);
+        const viewTop = this.camera.y;
+        const viewBottom = this.camera.y + (this.canvas.height / this.camera.zoom);
+
+        // Add some padding for smooth scrolling
+        const padding = 100;
+
+        for (const star of this.stars) {
+            // Only draw visible stars (with padding for smooth scrolling)
+            if (star.x >= viewLeft - padding && star.x <= viewRight + padding &&
+                star.y >= viewTop - padding && star.y <= viewBottom + padding) {
+
+                // Calculate twinkle effect
+                star.twinklePhase += star.twinkleSpeed;
+                const twinkle = Math.sin(star.twinklePhase) * 0.3 + 0.7; // 0.4 to 1.0
+                const alpha = star.brightness * twinkle;
+
+                // Draw the star
+                this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                this.ctx.beginPath();
+                this.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Add glow for larger stars
+                if (star.size > 1.5) {
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.2})`;
+                    this.ctx.beginPath();
+                    this.ctx.arc(star.x, star.y, star.size * 2, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            }
+        }
+    }
+
     drawBackground() {
+        // Draw starfield
+        this.drawStarfield();
+
         // Draw subtle grid pattern that covers the world
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
         this.ctx.lineWidth = 1;
 
         const gridSize = 100; // Larger grid for bigger world

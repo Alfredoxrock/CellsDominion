@@ -1,4 +1,201 @@
 // Enhanced Cell class - The heart of our evolutionary simulation with shapes and advanced abilities
+
+// Name generation for cells
+class CellNameGenerator {
+    static prefixes = [
+        'Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota', 'Kappa',
+        'Lambda', 'Mu', 'Nu', 'Xi', 'Omicron', 'Pi', 'Rho', 'Sigma', 'Tau', 'Upsilon',
+        'Phi', 'Chi', 'Psi', 'Omega', 'Nova', 'Stellar', 'Cosmic', 'Quantum', 'Plasma', 'Ion',
+        'Nebula', 'Pulsar', 'Quasar', 'Vortex', 'Matrix', 'Helix', 'Prism', 'Echo', 'Flux', 'Apex'
+    ];
+
+    static suffixes = [
+        'Prime', 'Core', 'Genesis', 'Nexus', 'Void', 'Star', 'Ray', 'Wave', 'Force', 'Light',
+        'Dark', 'Ghost', 'Shadow', 'Flame', 'Ice', 'Storm', 'Wind', 'Earth', 'Metal', 'Crystal',
+        'Spark', 'Bolt', 'Surge', 'Pulse', 'Beat', 'Flow', 'Stream', 'Tide', 'Nova', 'Sol'
+    ];
+
+    static generate(parentName = null, mutationChance = 0.3) {
+        if (parentName && Math.random() > mutationChance) {
+            // Inherit parent name with small variation (Roman numeral or variant)
+            const variants = ['II', 'III', 'Jr', 'Neo', 'X', 'Plus', 'Max', 'Pro'];
+            const variant = variants[Math.floor(Math.random() * variants.length)];
+            return `${parentName}-${variant}`;
+        }
+
+        // Generate new name
+        const prefix = this.prefixes[Math.floor(Math.random() * this.prefixes.length)];
+        const suffix = this.suffixes[Math.floor(Math.random() * this.suffixes.length)];
+        const number = Math.floor(Math.random() * 999) + 1;
+
+        return `${prefix}-${suffix}-${number.toString().padStart(3, '0')}`;
+    }
+}
+
+// Colony class for managing cell structures
+class Colony {
+    constructor(founderCell) {
+        this.id = `Colony-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        this.members = [founderCell];
+        this.founder = founderCell;
+        this.bonds = new Map(); // cell1_id -> cell2_id bonds
+        this.sharedResources = {
+            energy: 0,
+            materials: 0
+        };
+        this.structure = {
+            center: { x: founderCell.x, y: founderCell.y },
+            radius: founderCell.radius * 2,
+            integrity: 100
+        };
+
+        founderCell.colony = this;
+        founderCell.isColonyFounder = true;
+    }
+
+    addMember(cell, bondWith) {
+        if (this.members.includes(cell)) return false;
+        if (this.members.length >= 20) return false; // Max colony size
+
+        this.members.push(cell);
+        cell.colony = this;
+
+        if (bondWith && this.members.includes(bondWith)) {
+            this.createBond(cell, bondWith);
+        }
+
+        this.updateStructure();
+        return true;
+    }
+
+    removeMember(cell) {
+        const index = this.members.indexOf(cell);
+        if (index === -1) return false;
+
+        this.members.splice(index, 1);
+        cell.colony = null;
+
+        // Remove all bonds involving this cell
+        this.bonds.forEach((bond, key) => {
+            if (bond.includes(cell.id)) {
+                this.bonds.delete(key);
+            }
+        });
+
+        // Remove from other cells' bond arrays
+        cell.bonds = [];
+
+        this.updateStructure();
+        return true;
+    }
+
+    createBond(cell1, cell2) {
+        if (!this.members.includes(cell1) || !this.members.includes(cell2)) return false;
+        if (cell1.bonds.length >= cell1.maxBonds || cell2.bonds.length >= cell2.maxBonds) return false;
+
+        const bondKey = `${Math.min(cell1.id, cell2.id)}_${Math.max(cell1.id, cell2.id)}`;
+        if (this.bonds.has(bondKey)) return false;
+
+        this.bonds.set(bondKey, { cell1: cell1.id, cell2: cell2.id, strength: 1.0, age: 0 });
+        cell1.bonds.push(cell2.id);
+        cell2.bonds.push(cell1.id);
+        cell1.bondStrength.set(cell2.id, 1.0);
+        cell2.bondStrength.set(cell1.id, 1.0);
+
+        return true;
+    }
+
+    updateStructure() {
+        if (this.members.length === 0) return;
+
+        // Calculate center of mass
+        let totalX = 0, totalY = 0, totalMass = 0;
+        for (const member of this.members) {
+            const mass = member.mass;
+            totalX += member.x * mass;
+            totalY += member.y * mass;
+            totalMass += mass;
+        }
+
+        this.structure.center.x = totalX / totalMass;
+        this.structure.center.y = totalY / totalMass;
+
+        // Calculate structure radius (max distance from center)
+        let maxDistance = 0;
+        for (const member of this.members) {
+            const dist = Math.sqrt(
+                Math.pow(member.x - this.structure.center.x, 2) +
+                Math.pow(member.y - this.structure.center.y, 2)
+            ) + member.radius;
+            maxDistance = Math.max(maxDistance, dist);
+        }
+        this.structure.radius = maxDistance;
+    }
+
+    shareResources() {
+        // Pool energy and distribute it
+        let totalEnergy = 0;
+        let totalCapacity = 0;
+
+        for (const member of this.members) {
+            totalEnergy += member.traits.energy;
+            totalCapacity += member.traits.maxEnergy;
+        }
+
+        // Keep 90% for members, 10% for colony reserves
+        const sharedEnergy = totalEnergy * 0.1;
+        const individualEnergy = (totalEnergy * 0.9) / this.members.length;
+
+        this.sharedResources.energy = sharedEnergy;
+
+        for (const member of this.members) {
+            // Balance energy across colony members
+            const targetEnergy = Math.min(individualEnergy, member.traits.maxEnergy);
+            if (member.traits.energy < targetEnergy) {
+                const energyDiff = Math.min(targetEnergy - member.traits.energy, sharedEnergy);
+                member.traits.energy += energyDiff;
+                this.sharedResources.energy -= energyDiff;
+            }
+        }
+    }
+
+    render(ctx) {
+        // Draw colony structure outline
+        ctx.strokeStyle = 'rgba(0, 255, 136, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(this.structure.center.x, this.structure.center.y, this.structure.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw bonds between cells
+        this.bonds.forEach((bond) => {
+            const cell1 = this.members.find(m => m.id === bond.cell1);
+            const cell2 = this.members.find(m => m.id === bond.cell2);
+
+            if (cell1 && cell2) {
+                ctx.strokeStyle = `rgba(0, 255, 136, ${bond.strength * 0.8})`;
+                ctx.lineWidth = bond.strength * 3;
+                ctx.beginPath();
+                ctx.moveTo(cell1.x, cell1.y);
+                ctx.lineTo(cell2.x, cell2.y);
+                ctx.stroke();
+            }
+        });
+
+        // Draw colony name
+        ctx.font = '14px "Orbitron", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#00ff88';
+        ctx.fillText(
+            this.id.split('-')[0],
+            this.structure.center.x,
+            this.structure.center.y - this.structure.radius - 20
+        );
+    }
+}
+
 class Cell {
     constructor(x, y, traits = {}) {
         // Position and movement
@@ -7,6 +204,19 @@ class Cell {
         this.vx = (Math.random() - 0.5) * 2; // Random initial velocity
         this.vy = (Math.random() - 0.5) * 2;
         this.rotation = Math.random() * Math.PI * 2; // For non-circular shapes
+
+        // Cell identity
+        this.id = `cell_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+        this.name = traits.name || CellNameGenerator.generate(traits.parentName, 0.7);
+        this.showName = true;
+        this.nameVisibilityTimer = 0;
+
+        // Infection status
+        this.isVirus = false;
+        this.isInfected = false;
+        this.infectionTimer = 0;
+        this.infectionSeverity = 0;
+        this.infectedBy = null;
 
         // Core traits (DNA) - Enhanced with many new features
         this.traits = {
@@ -59,6 +269,13 @@ class Cell {
         this.lastReproduction = 0;
         this.allies = []; // For pack behavior
         this.territory = null; // For territorial cells
+
+        // Colony/Structure system
+        this.colony = null; // Reference to colony this cell belongs to
+        this.bonds = []; // Direct bonds with neighboring cells
+        this.maxBonds = 4; // Maximum number of bonds a cell can form
+        this.bondStrength = new Map(); // Strength of bonds with other cells
+        this.isColonyFounder = false;
 
         // Round tournament stats
         this.roundStats = {
@@ -237,6 +454,9 @@ class Cell {
         // Lifecycle progression
         this.updateLifecycle();
 
+        // Handle infection effects
+        this.handleInfection();
+
         // Environmental effects
         this.applyEnvironmentalEffects(environment);
 
@@ -283,6 +503,61 @@ class Cell {
             this.traits.lifestage = 'elder';
             this.traits.speed *= 0.7; // Slower but wiser
             this.traits.visionRange *= 1.5; // Better perception
+        }
+    }
+
+    handleInfection() {
+        if (!this.isInfected) return;
+
+        this.infectionTimer--;
+
+        // Apply infection damage over time
+        const damagePerTick = this.infectionSeverity * 0.5;
+        this.traits.health -= damagePerTick;
+        this.traits.energy -= damagePerTick * 0.3;
+
+        // Visual infection effects
+        if (this.infectionTimer % 20 === 0) {
+            // Add sickness particles
+            for (let i = 0; i < 3; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 0.5 + Math.random() * 1;
+
+                this.particleEffects.push({
+                    x: this.x,
+                    y: this.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    size: 1 + Math.random() * 2,
+                    life: 30,
+                    maxLife: 30,
+                    color: '#66ff66',
+                    type: 'sickness'
+                });
+            }
+        }
+
+        // Recovery or death
+        if (this.infectionTimer <= 0) {
+            // Cell either recovers or dies
+            const survivalChance = (this.traits.health / this.traits.maxHealth) * 0.7 + this.traits.toxinResistance * 0.3;
+
+            if (Math.random() < survivalChance) {
+                // Successful recovery
+                this.isInfected = false;
+                this.infectionTimer = 0;
+                this.infectionSeverity = 0;
+                this.infectedBy = null;
+
+                // Gain some immunity (increased toxin resistance)
+                this.traits.toxinResistance = Math.min(0.9, this.traits.toxinResistance + 0.1);
+
+                console.log(`${this.name} recovered from infection!`);
+            } else {
+                // Death from infection
+                this.traits.health = 0;
+                console.log(`${this.name} died from infection by ${this.infectedBy}`);
+            }
         }
     }
 
@@ -917,6 +1192,80 @@ class Cell {
                 this.distanceTo(cell) < 80
             );
         }
+
+        // Colony formation and management
+        this.updateColonyBehavior(cells);
+    }
+
+    updateColonyBehavior(cells) {
+        // Don't form colonies if already in one and it's stable
+        if (this.colony && this.colony.members.length > 1 && Math.random() > 0.01) return;
+
+        // Look for nearby cells to form bonds with
+        const nearbyCells = cells.filter(cell =>
+            cell !== this &&
+            cell.traits.defenseType === this.traits.defenseType && // Similar defense types bond better
+            this.distanceTo(cell) < 60 && // Close proximity
+            (!this.colony || !cell.colony || this.colony === cell.colony) // Not in different colonies
+        );
+
+        if (nearbyCells.length === 0) return;
+
+        // If not in a colony, consider founding one
+        if (!this.colony && this.traits.energy > this.traits.maxEnergy * 0.6) {
+            const candidate = nearbyCells.find(cell => !cell.colony);
+            if (candidate && Math.random() < 0.05) { // 5% chance per frame
+                this.foundColony(candidate);
+            }
+        }
+
+        // If in a colony, consider inviting nearby cells
+        if (this.colony && this.isColonyFounder && this.colony.members.length < 8) {
+            const candidate = nearbyCells.find(cell => !cell.colony);
+            if (candidate && Math.random() < 0.02) { // 2% chance per frame
+                this.colony.addMember(candidate, this);
+            }
+        }
+
+        // Update existing bonds
+        if (this.colony) {
+            this.colony.bonds.forEach((bond, key) => {
+                bond.age++;
+                // Bonds decay over time if cells are too far apart
+                const cell1 = this.colony.members.find(m => m.id === bond.cell1);
+                const cell2 = this.colony.members.find(m => m.id === bond.cell2);
+
+                if (cell1 && cell2) {
+                    const distance = cell1.distanceTo(cell2);
+                    if (distance > 80) {
+                        bond.strength -= 0.01; // Decay if too far
+                    } else if (distance < 40) {
+                        bond.strength = Math.min(1.0, bond.strength + 0.005); // Strengthen if close
+                    }
+
+                    // Remove weak bonds
+                    if (bond.strength <= 0) {
+                        this.colony.bonds.delete(key);
+                        if (cell1 && cell2) {
+                            cell1.bonds = cell1.bonds.filter(id => id !== cell2.id);
+                            cell2.bonds = cell2.bonds.filter(id => id !== cell1.id);
+                            cell1.bondStrength.delete(cell2.id);
+                            cell2.bondStrength.delete(cell1.id);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    foundColony(partnerCell) {
+        if (this.colony || partnerCell.colony) return false;
+
+        const newColony = new Colony(this);
+        newColony.addMember(partnerCell, this);
+
+        console.log(`${this.name} founded colony ${newColony.id} with ${partnerCell.name}`);
+        return true;
     }
 
     getCurrentEmotionalState() {
@@ -1158,10 +1507,69 @@ class Cell {
     }
 
     considerReproduction() {
-        if (this.age - this.lastReproduction > 600 && this.traits.energy > this.traits.maxEnergy * 0.8) {
+        const energyRatio = this.traits.energy / this.traits.maxEnergy;
+        const healthRatio = this.traits.health / this.traits.maxHealth;
+        const timeSinceLastReproduction = this.age - this.lastReproduction;
+
+        // Base reproduction requirements
+        let reproductionCooldown = 600; // Base cooldown
+        let energyThreshold = 0.8;     // Base energy requirement
+
+        // Well-fed cells reproduce more frequently
+        if (energyRatio > 0.9) {
+            reproductionCooldown = 300; // Reproduce faster when well-fed
+            energyThreshold = 0.85;     // Need slightly more energy
+        }
+
+        // Super well-fed cells reproduce very frequently (duplication behavior)
+        if (energyRatio > 0.95) {
+            reproductionCooldown = 200; // Very fast reproduction
+            energyThreshold = 0.9;      // High energy requirement
+        }
+
+        // Healthy cells reproduce more easily
+        if (healthRatio > 0.9) {
+            reproductionCooldown *= 0.8; // 20% faster reproduction
+        }
+
+        // Adult cells reproduce better than juveniles
+        if (this.traits.lifestage === 'adult') {
+            reproductionCooldown *= 0.7; // Adults reproduce 30% faster
+        }
+
+        // Check if ready to reproduce
+        if (timeSinceLastReproduction > reproductionCooldown &&
+            energyRatio > energyThreshold &&
+            healthRatio > 0.5) {
+
             this.reproduced = true;
             this.lastReproduction = this.age;
-            this.traits.energy *= 0.6; // Reproduction costs energy
+
+            // Energy cost scales with how well-fed the cell is
+            const energyCost = energyRatio > 0.95 ? 0.7 : 0.6; // More energy cost for rapid reproduction
+            this.traits.energy *= energyCost;
+
+            // Visual feedback for reproduction
+            this.addReproductionEffect();
+        }
+    }
+
+    addReproductionEffect() {
+        // Add particle effects to show reproduction/duplication
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const distance = this.radius + 10;
+            this.particleEffects.push({
+                x: this.x + Math.cos(angle) * distance,
+                y: this.y + Math.sin(angle) * distance,
+                vx: Math.cos(angle) * 2,
+                vy: Math.sin(angle) * 2,
+                size: 3,
+                life: 30,
+                maxLife: 30,
+                color: '#00ff88',
+                type: 'reproduction'
+            });
         }
     }
 
@@ -1258,6 +1666,9 @@ class Cell {
         // Draw special ability indicators
         this.renderSpecialAbilityEffects(ctx);
 
+        // Draw infection effects
+        this.renderInfectionEffects(ctx);
+
         // Draw lifecycle indicators
         this.renderLifecycleIndicators(ctx);
 
@@ -1269,6 +1680,9 @@ class Cell {
 
         // Draw communication indicators
         this.renderCommunicationEffects(ctx);
+
+        // Draw cell name
+        this.renderName(ctx);
 
         ctx.restore();
     }
@@ -1530,6 +1944,41 @@ class Cell {
             case 'reflect':
                 this.renderReflectEffect(ctx);
                 break;
+        }
+    }
+
+    renderInfectionEffects(ctx) {
+        if (!this.isInfected) return;
+
+        // Pulsing sickness aura
+        const infectionPulse = Math.sin(this.age * 0.3) * 0.5 + 0.5;
+        const auraRadius = this.radius + 8 + infectionPulse * 5;
+
+        ctx.strokeStyle = `rgba(102, 255, 102, ${0.4 + infectionPulse * 0.3})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, auraRadius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Infection severity indicator
+        const severityBar = this.infectionSeverity;
+        ctx.fillStyle = 'rgba(102, 255, 102, 0.8)';
+        ctx.fillRect(this.x - 15, this.y - this.radius - 20, 30 * severityBar, 3);
+
+        // Border for severity bar
+        ctx.strokeStyle = 'rgba(102, 255, 102, 1)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x - 15, this.y - this.radius - 20, 30, 3);
+
+        // Infection timer countdown
+        if (this.infectionTimer > 0) {
+            const timeLeft = Math.ceil(this.infectionTimer / 60); // Convert to seconds
+            ctx.font = '10px "Orbitron", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#66ff66';
+            ctx.fillText(`Infected: ${timeLeft}s`, this.x, this.y - this.radius - 35);
         }
     }
 
@@ -1812,6 +2261,52 @@ class Cell {
         this.pheromones = this.pheromones.filter(p => p.age < p.maxAge);
     }
 
+    renderName(ctx) {
+        if (!this.showName) return;
+
+        // Position name above the cell
+        const nameY = this.y - this.radius - 25;
+
+        // Set up text style
+        ctx.font = '12px "Orbitron", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Measure text width for background
+        const textWidth = ctx.measureText(this.name).width;
+        const padding = 4;
+
+        // Draw semi-transparent background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(
+            this.x - textWidth / 2 - padding,
+            nameY - 8,
+            textWidth + padding * 2,
+            16
+        );
+
+        // Draw border
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(
+            this.x - textWidth / 2 - padding,
+            nameY - 8,
+            textWidth + padding * 2,
+            16
+        );
+
+        // Draw the name text
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(this.name, this.x, nameY);
+
+        // Add generation indicator
+        if (this.generation > 1) {
+            ctx.font = '10px "Orbitron", monospace';
+            ctx.fillStyle = '#00ff88';
+            ctx.fillText(`Gen ${this.generation}`, this.x, nameY + 15);
+        }
+    }
+
     renderHealthBar(ctx) {
         const barWidth = this.radius * 2;
         const barHeight = 4;
@@ -1960,8 +2455,193 @@ class Cell {
         const childY = this.y + Math.sin(angle) * distance;
 
         const mutatedTraits = this.mutate(mutationRate);
+        mutatedTraits.parentName = this.name; // Pass parent name for inheritance
+        mutatedTraits.generation = this.generation + 1; // Increment generation
         return new Cell(childX, childY, mutatedTraits);
     }
 }
 
-export { Cell };
+// Virus class - infectious agents that can infect cells
+class Virus extends Cell {
+    constructor(x, y, traits = {}) {
+        // Viruses are smaller and faster than regular cells
+        const virusTraits = {
+            health: 20 + Math.random() * 20, // 20-40 (much lower than cells)
+            size: 3 + Math.random() * 4, // 3-7 (smaller than cells)
+            speed: 2 + Math.random() * 2, // 2-4 (faster than cells)
+            energy: 30 + Math.random() * 20, // 30-50
+            defenseType: 'viral',
+            shape: 'star', // Distinctive shape
+            specialAbility: 'infection',
+            ...traits
+        };
+
+        super(x, y, virusTraits);
+
+        // Virus-specific properties
+        this.isVirus = true;
+        this.infectionRadius = 25;
+        this.infectionStrength = 0.3;
+        this.infectionCooldown = 0;
+        this.infectionsCount = 0;
+        this.maxInfections = 5; // Can infect up to 5 cells before dying
+
+        // Visual properties
+        this.color = '#ff0066'; // Bright pink/red
+        this.pulsePhase = Math.random() * Math.PI * 2;
+
+        // Override name generation for viruses
+        this.name = traits.name || this.generateVirusName();
+    }
+
+    generateVirusName() {
+        const virusNames = [
+            'Omega-Strain', 'Alpha-Virus', 'Beta-Pathogen', 'Gamma-Plague', 'Delta-Infection',
+            'Viral-X', 'Phantom-Bug', 'Ghost-Code', 'Shadow-Virus', 'Crimson-Strain',
+            'Nano-Plague', 'Bio-Hazard', 'Toxic-Agent', 'Cyber-Virus', 'Mutant-Code'
+        ];
+
+        const number = Math.floor(Math.random() * 999) + 1;
+        const baseName = virusNames[Math.floor(Math.random() * virusNames.length)];
+        return `${baseName}-${number.toString().padStart(3, '0')}`;
+    }
+
+    update(cells, food, worldWidth, worldHeight) {
+        super.update(cells, food, worldWidth, worldHeight);
+
+        // Update infection cooldown
+        if (this.infectionCooldown > 0) {
+            this.infectionCooldown--;
+        }
+
+        // Pulse visual effect
+        this.pulsePhase += 0.2;
+
+        // Viruses die after infecting enough cells or getting too old
+        if (this.infectionsCount >= this.maxInfections || this.age > 2000) {
+            this.traits.health = 0; // Kill the virus
+        }
+
+        // Virus-specific behavior
+        this.seekHostCells(cells);
+    }
+
+    seekHostCells(cells) {
+        if (this.infectionCooldown > 0) return;
+
+        // Look for healthy cells to infect
+        const potentialHosts = cells.filter(cell =>
+            !cell.isVirus &&
+            !cell.isInfected &&
+            this.distanceTo(cell) < this.infectionRadius &&
+            cell.traits.health > cell.traits.maxHealth * 0.3 // Don't infect dying cells
+        );
+
+        if (potentialHosts.length > 0) {
+            // Find closest healthy cell
+            let closestHost = null;
+            let closestDistance = Infinity;
+
+            for (const host of potentialHosts) {
+                const distance = this.distanceTo(host);
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestHost = host;
+                }
+            }
+
+            if (closestHost) {
+                this.moveToward(closestHost.x, closestHost.y);
+
+                // Try to infect if close enough
+                if (closestDistance < this.radius + closestHost.radius + 5) {
+                    this.infectCell(closestHost);
+                }
+            }
+        }
+    }
+
+    infectCell(cell) {
+        if (cell.isVirus || cell.isInfected || this.infectionCooldown > 0) return false;
+
+        // Check if cell resists infection
+        const resistanceChance = cell.traits.toxinResistance * 0.5; // Toxin resistance helps against viruses
+        if (Math.random() < resistanceChance) {
+            // Cell resisted infection
+            this.addParticleEffect('resist', cell.x, cell.y);
+            this.infectionCooldown = 120; // 2 second cooldown after failed infection
+            return false;
+        }
+
+        // Successful infection
+        cell.isInfected = true;
+        cell.infectionTimer = 600 + Math.random() * 300; // 10-15 seconds of infection
+        cell.infectionSeverity = this.infectionStrength;
+        cell.infectedBy = this.name;
+
+        // Visual effects
+        this.addParticleEffect('infection', cell.x, cell.y);
+
+        // Update virus stats
+        this.infectionsCount++;
+        this.infectionCooldown = 180; // 3 second cooldown after successful infection
+        this.traits.energy += 10; // Virus gains energy from infection
+
+        console.log(`${this.name} infected ${cell.name}!`);
+        return true;
+    }
+
+    addParticleEffect(type, x, y) {
+        const color = type === 'infection' ? '#ff0066' : '#88ff88';
+        const particleCount = type === 'infection' ? 12 : 6;
+
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (i / particleCount) * Math.PI * 2;
+            const speed = 2 + Math.random() * 2;
+
+            this.particleEffects.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 2 + Math.random() * 2,
+                life: 40,
+                maxLife: 40,
+                color: color,
+                type: type
+            });
+        }
+    }
+
+    render(ctx) {
+        // Pulsing effect for virus
+        const pulse = Math.sin(this.pulsePhase) * 0.3 + 0.7;
+        const oldAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = pulse;
+
+        super.render(ctx);
+
+        // Add viral glow
+        ctx.globalAlpha = pulse * 0.3;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius * 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Restore alpha
+        ctx.globalAlpha = oldAlpha;
+
+        // Draw infection radius when hunting
+        if (this.infectionCooldown === 0) {
+            ctx.strokeStyle = 'rgba(255, 0, 102, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.infectionRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+}
+
+export { Cell, Virus };

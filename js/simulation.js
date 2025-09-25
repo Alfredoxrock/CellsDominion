@@ -1,5 +1,5 @@
 // Main simulation controller - orchestrates all systems
-import { Cell } from './cell.js';
+import { Cell, Virus } from './cell.js';
 import { FoodManager } from './food.js';
 import { Environment } from './environment.js';
 
@@ -10,6 +10,8 @@ class Simulation {
 
         // Simulation state
         this.cells = [];
+        this.viruses = []; // Separate array for viruses
+        this.colonies = []; // Array to track active colonies
         this.foodManager = new FoodManager(width, height);
         this.environment = new Environment(width, height);
         this.tick = 0;
@@ -34,7 +36,9 @@ class Simulation {
             simulationSpeed: 1.0,
             maxCells: 1000, // Increased from 200 to 1000
             winnersPerRound: 8, // More winners for larger populations
-            roundDuration: 3000
+            roundDuration: 3000,
+            virusSpawnRate: 0.008, // Chance per tick to spawn a virus (about 1 every 2 seconds)
+            maxViruses: 10 // Maximum number of viruses at once
         };
 
         // Statistics
@@ -196,6 +200,15 @@ class Simulation {
         // Add new cells
         this.cells.push(...newCells);
 
+        // Update viruses
+        this.updateViruses(food, environment);
+
+        // Spawn new viruses occasionally
+        this.spawnViruses();
+
+        // Update colonies
+        this.updateColonies();
+
         // Check for extinction and respawn if needed
         if (this.cells.length === 0) {
             console.log('💀 Population extinct! Respawning...');
@@ -213,6 +226,65 @@ class Simulation {
 
         // Update statistics
         this.updateStats();
+    }
+
+    updateViruses(food, environment) {
+        const deadViruses = [];
+
+        // Update each virus
+        this.viruses.forEach((virus, index) => {
+            const isAlive = virus.update(this.cells, food, this.width, this.height);
+
+            if (!isAlive || virus.traits.health <= 0) {
+                deadViruses.push(index);
+            }
+        });
+
+        // Remove dead viruses
+        deadViruses.reverse().forEach(index => {
+            this.viruses.splice(index, 1);
+        });
+    }
+
+    spawnViruses() {
+        if (this.viruses.length >= this.settings.maxViruses) return;
+        if (this.cells.length < 10) return; // Need some cells to justify virus spawning
+
+        if (Math.random() < this.settings.virusSpawnRate) {
+            const x = Math.random() * this.width;
+            const y = Math.random() * this.height;
+
+            const virus = new Virus(x, y);
+            this.viruses.push(virus);
+
+            console.log(`🦠 New virus spawned: ${virus.name}`);
+        }
+    }
+
+    updateColonies() {
+        // Update existing colonies
+        this.colonies.forEach((colony, index) => {
+            if (colony.members.length === 0) {
+                // Remove empty colonies
+                this.colonies.splice(index, 1);
+                return;
+            }
+
+            // Update colony structure
+            colony.updateStructure();
+
+            // Share resources among colony members
+            if (colony.members.length > 1) {
+                colony.shareResources();
+            }
+        });
+
+        // Find new colonies that have been formed
+        this.cells.forEach(cell => {
+            if (cell.colony && !this.colonies.includes(cell.colony)) {
+                this.colonies.push(cell.colony);
+            }
+        });
     }
 
     applyPoisonEffects() {
@@ -315,8 +387,14 @@ class Simulation {
         // Render food first (background layer)
         this.foodManager.render(ctx);
 
+        // Render colonies (background structures)
+        this.colonies.forEach(colony => colony.render(ctx));
+
         // Render cells
         this.cells.forEach(cell => cell.render(ctx));
+
+        // Render viruses (foreground - they should be visible)
+        this.viruses.forEach(virus => virus.render(ctx));
 
         // Render debug info if needed
         if (this.showDebugInfo) {
