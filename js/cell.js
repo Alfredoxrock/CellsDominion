@@ -277,6 +277,13 @@ class Cell {
         this.bondStrength = new Map(); // Strength of bonds with other cells
         this.isColonyFounder = false;
 
+        // Colony role specialization
+        this.colonyRole = traits.colonyRole || this.determineInitialRole();
+        this.roleDecisionTimer = 0;
+        this.homePosition = { x: this.x, y: this.y }; // Home base for sedentary cells
+        this.maxDistanceFromHome = 100; // How far adventurers can roam
+        this.explorationTarget = null;
+
         // Round tournament stats
         this.roundStats = {
             survivalTime: 0,
@@ -367,6 +374,32 @@ class Cell {
     randomSocialBehavior() {
         const behaviors = ['solitary', 'cooperative', 'aggressive', 'territorial', 'pack'];
         return behaviors[Math.floor(Math.random() * behaviors.length)];
+    }
+
+    determineInitialRole() {
+        // Determine initial colony role based on traits
+        const speed = this.traits.speed;
+        const socialBehavior = this.traits.socialBehavior;
+        const specialAbility = this.traits.specialAbility;
+
+        // Adventurers are typically faster, pack hunters, or migratory
+        if (speed > 2.5 ||
+            socialBehavior === 'pack' ||
+            specialAbility === 'migratory' ||
+            specialAbility === 'pack_hunter') {
+            return Math.random() < 0.7 ? 'adventurer' : 'sedentary';
+        }
+
+        // Sedentary cells are territorial, have defensive abilities, or photosynthetic
+        if (socialBehavior === 'territorial' ||
+            this.traits.defenseType !== 'none' ||
+            specialAbility === 'photosynthesis' ||
+            specialAbility === 'burrowing') {
+            return Math.random() < 0.7 ? 'sedentary' : 'adventurer';
+        }
+
+        // Default: random with slight bias toward adventurer
+        return Math.random() < 0.6 ? 'adventurer' : 'sedentary';
     }
 
     calculateMass() {
@@ -1198,49 +1231,61 @@ class Cell {
     }
 
     updateColonyBehavior(cells) {
-        // Don't form colonies if already in one and it's stable
-        if (this.colony && this.colony.members.length > 1 && Math.random() > 0.01) return;
+        // Don't form colonies if already in one and it's stable (but allow more activity for clustering)
+        if (this.colony && this.colony.members.length > 1 && Math.random() > 0.02) return;
+
+        // Role-based colony behavior
+        const bondingDistance = this.colonyRole === 'sedentary' ? 80 : 100; // Sedentary cells cluster tighter
+        const formationChance = this.colonyRole === 'sedentary' ? 0.08 : 0.03; // Sedentary cells more likely to form colonies
 
         // Look for nearby cells to form bonds with
         const nearbyCells = cells.filter(cell =>
             cell !== this &&
             cell.traits.defenseType === this.traits.defenseType && // Similar defense types bond better
-            this.distanceTo(cell) < 60 && // Close proximity
-            (!this.colony || !cell.colony || this.colony === cell.colony) // Not in different colonies
+            this.distanceTo(cell) < bondingDistance &&
+            (!this.colony || !cell.colony || this.colony === cell.colony) && // Not in different colonies
+            // Prefer same roles for stronger colonies, but allow mixed
+            (this.colonyRole === cell.colonyRole || Math.random() < 0.3)
         );
 
         if (nearbyCells.length === 0) return;
 
         // If not in a colony, consider founding one
-        if (!this.colony && this.traits.energy > this.traits.maxEnergy * 0.6) {
+        if (!this.colony && this.traits.energy > this.traits.maxEnergy * 0.5) {
             const candidate = nearbyCells.find(cell => !cell.colony);
-            if (candidate && Math.random() < 0.05) { // 5% chance per frame
+            if (candidate && Math.random() < formationChance) {
                 this.foundColony(candidate);
             }
         }
 
         // If in a colony, consider inviting nearby cells
-        if (this.colony && this.isColonyFounder && this.colony.members.length < 8) {
+        const maxColonySize = this.colonyRole === 'sedentary' ? 12 : 8; // Sedentary colonies can be larger
+        if (this.colony && this.isColonyFounder && this.colony.members.length < maxColonySize) {
             const candidate = nearbyCells.find(cell => !cell.colony);
-            if (candidate && Math.random() < 0.02) { // 2% chance per frame
+            if (candidate && Math.random() < 0.04) { // Increased invitation rate
                 this.colony.addMember(candidate, this);
+                // Update home position for new members to cluster around colony center
+                if (candidate.colonyRole === 'sedentary') {
+                    candidate.homePosition = { x: this.x, y: this.y };
+                }
             }
         }
 
-        // Update existing bonds
+        // Enhanced bond management with role consideration
         if (this.colony) {
             this.colony.bonds.forEach((bond, key) => {
                 bond.age++;
-                // Bonds decay over time if cells are too far apart
                 const cell1 = this.colony.members.find(m => m.id === bond.cell1);
                 const cell2 = this.colony.members.find(m => m.id === bond.cell2);
 
                 if (cell1 && cell2) {
                     const distance = cell1.distanceTo(cell2);
-                    if (distance > 80) {
-                        bond.strength -= 0.01; // Decay if too far
-                    } else if (distance < 40) {
-                        bond.strength = Math.min(1.0, bond.strength + 0.005); // Strengthen if close
+                    const maxDistance = (cell1.colonyRole === 'sedentary' && cell2.colonyRole === 'sedentary') ? 60 : 100;
+
+                    if (distance > maxDistance) {
+                        bond.strength -= 0.015; // Faster decay for distant bonds
+                    } else if (distance < 30) {
+                        bond.strength = Math.min(1.0, bond.strength + 0.01); // Faster strengthening when close
                     }
 
                     // Remove weak bonds
@@ -1376,8 +1421,55 @@ class Cell {
             this.evaluateEnvironment(cells, food);
         }
 
-        // Apply some random movement to avoid getting stuck
+        // Apply role-based movement when no target
         if (!this.target) {
+            this.applyRoleBasedMovement();
+        }
+    }
+
+    applyRoleBasedMovement() {
+        if (this.colonyRole === 'sedentary') {
+            // Sedentary cells stay near their home position
+            const distanceFromHome = Math.sqrt(
+                (this.x - this.homePosition.x) ** 2 +
+                (this.y - this.homePosition.y) ** 2
+            );
+
+            if (distanceFromHome > 50) {
+                // Return towards home
+                this.moveTowards(this.homePosition.x, this.homePosition.y);
+            } else {
+                // Small random movements around home
+                this.vx += (Math.random() - 0.5) * 0.05;
+                this.vy += (Math.random() - 0.5) * 0.05;
+            }
+        } else if (this.colonyRole === 'adventurer') {
+            // Adventurers explore more actively
+            if (!this.explorationTarget || Math.random() < 0.01) {
+                // Set new exploration target
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 100 + Math.random() * this.maxDistanceFromHome;
+                this.explorationTarget = {
+                    x: this.homePosition.x + Math.cos(angle) * distance,
+                    y: this.homePosition.y + Math.sin(angle) * distance
+                };
+            }
+
+            if (this.explorationTarget) {
+                const distanceToTarget = Math.sqrt(
+                    (this.x - this.explorationTarget.x) ** 2 +
+                    (this.y - this.explorationTarget.y) ** 2
+                );
+
+                if (distanceToTarget > 20) {
+                    this.moveTowards(this.explorationTarget.x, this.explorationTarget.y);
+                } else {
+                    // Reached target, clear it to get new one
+                    this.explorationTarget = null;
+                }
+            }
+        } else {
+            // Default random movement for unspecialized cells
             this.vx += (Math.random() - 0.5) * 0.1;
             this.vy += (Math.random() - 0.5) * 0.1;
         }
@@ -1511,28 +1603,48 @@ class Cell {
         const healthRatio = this.traits.health / this.traits.maxHealth;
         const timeSinceLastReproduction = this.age - this.lastReproduction;
 
-        // Base reproduction requirements
-        let reproductionCooldown = 600; // Base cooldown
-        let energyThreshold = 0.8;     // Base energy requirement
+        // Enhanced duplication system - much more aggressive reproduction
+        let reproductionCooldown = 400; // Reduced base cooldown (was 600)
+        let energyThreshold = 0.75;     // Lowered energy requirement (was 0.8)
 
-        // Well-fed cells reproduce more frequently
-        if (energyRatio > 0.9) {
-            reproductionCooldown = 300; // Reproduce faster when well-fed
-            energyThreshold = 0.85;     // Need slightly more energy
+        // Well-fed cells reproduce much more frequently
+        if (energyRatio > 0.85) {
+            reproductionCooldown = 180; // Very fast reproduction (was 300)
+            energyThreshold = 0.8;      // Still reasonable energy requirement
         }
 
-        // Super well-fed cells reproduce very frequently (duplication behavior)
+        // Super well-fed cells reproduce extremely frequently (rapid duplication)
         if (energyRatio > 0.95) {
-            reproductionCooldown = 200; // Very fast reproduction
-            energyThreshold = 0.9;      // High energy requirement
+            reproductionCooldown = 100; // Ultra-fast reproduction (was 200)
+            energyThreshold = 0.85;     // Higher energy requirement for rapid reproduction
+        }
+
+        // Colony members reproduce more aggressively to grow the colony
+        if (this.colony && this.colony.members.length < 15) {
+            reproductionCooldown *= 0.6; // 40% faster reproduction in colonies
+            energyThreshold -= 0.05;      // Lower energy threshold for colony growth
+        }
+
+        // Sedentary cells focus on reproduction
+        if (this.colonyRole === 'sedentary') {
+            reproductionCooldown *= 0.4; // 60% faster reproduction for sedentary cells
+            energyThreshold -= 0.1;       // Much lower energy threshold
         }
 
         // Healthy cells reproduce more easily
         if (healthRatio > 0.9) {
-            reproductionCooldown *= 0.8; // 20% faster reproduction
+            reproductionCooldown *= 0.7; // 30% faster reproduction (was 0.8)
         }
 
         // Adult cells reproduce better than juveniles
+        if (this.traits.lifestage === 'adult') {
+            reproductionCooldown *= 0.6; // Adults reproduce 40% faster (was 30%)
+        }
+
+        // Elder cells can still reproduce but slower
+        if (this.traits.lifestage === 'elder') {
+            reproductionCooldown *= 1.3; // Elders reproduce 30% slower
+        }
         if (this.traits.lifestage === 'adult') {
             reproductionCooldown *= 0.7; // Adults reproduce 30% faster
         }
@@ -1549,9 +1661,56 @@ class Cell {
             const energyCost = energyRatio > 0.95 ? 0.7 : 0.6; // More energy cost for rapid reproduction
             this.traits.energy *= energyCost;
 
+            // Role-based reproduction behavior
+            this.handleRoleBasedReproduction();
+
             // Visual feedback for reproduction
             this.addReproductionEffect();
         }
+    }
+
+    handleRoleBasedReproduction() {
+        if (this.colonyRole === 'sedentary' && this.colony) {
+            // Sedentary cells tend to produce more sedentary offspring
+            // and place them close to the colony center
+            const offspring = this.createOffspring();
+            if (offspring) {
+                offspring.colonyRole = Math.random() < 0.8 ? 'sedentary' : 'adventurer';
+                offspring.homePosition = { x: this.x, y: this.y };
+
+                // Try to add offspring to the same colony
+                if (this.colony.members.length < 12) {
+                    this.colony.addMember(offspring, this);
+                }
+            }
+        } else if (this.colonyRole === 'adventurer') {
+            // Adventurers might reproduce in remote locations
+            const offspring = this.createOffspring();
+            if (offspring) {
+                offspring.colonyRole = Math.random() < 0.6 ? 'adventurer' : 'sedentary';
+                offspring.homePosition = { x: offspring.x, y: offspring.y };
+
+                // Adventurers might start new colonies if far from home
+                const distanceFromHome = Math.sqrt(
+                    (this.x - this.homePosition.x) ** 2 +
+                    (this.y - this.homePosition.y) ** 2
+                );
+
+                if (distanceFromHome > this.maxDistanceFromHome * 0.8 &&
+                    !this.colony && Math.random() < 0.3) {
+                    // Found new outpost colony
+                    const newColony = new Colony(offspring);
+                    offspring.isColonyFounder = true;
+                }
+            }
+        }
+    }
+
+    createOffspring() {
+        // This method should be implemented in simulation.js to actually create the offspring
+        // Here we just return a conceptual offspring for role assignment
+        // The actual creation happens in the simulation
+        return null;
     }
 
     addReproductionEffect() {
