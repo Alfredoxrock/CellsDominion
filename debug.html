@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Cell Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            border: 1px solid #fff;
+            background: #000;
+        }
+
+        #debug {
+            margin-top: 10px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Debug Cell Simulation</h1>
+    <canvas id="debugCanvas" width="800" height="600"></canvas>
+    <div id="debug">
+        <div>Canvas Status: <span id="canvasStatus">Loading...</span></div>
+        <div>Cells Count: <span id="cellsCount">0</span></div>
+        <div>Errors: <span id="errors">None</span></div>
+    </div>
+
+    <script type="module">
+        console.log('🔍 Debug script starting...');
+
+        const canvas = document.getElementById('debugCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Test canvas
+        ctx.fillStyle = '#00ff00';
+        ctx.fillRect(10, 10, 50, 50);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '16px Arial';
+        ctx.fillText('Canvas Working', 70, 35);
+
+        document.getElementById('canvasStatus').textContent = 'Working';
+
+        try {
+            // Try importing modules
+            console.log('📦 Importing Cell...');
+            const { Cell } = await import('./js/cell.js');
+            console.log('✅ Cell imported successfully');
+
+            console.log('📦 Importing Simulation...');
+            const { Simulation } = await import('./js/simulation.js');
+            console.log('✅ Simulation imported successfully');
+
+            console.log('📦 Importing UIManager...');
+            const { UIManager } = await import('./js/ui.js');
+            console.log('✅ UIManager imported successfully');
+
+            console.log('🧬 Creating test cell...');
+            const testCell = new Cell(100, 100);
+            console.log('✅ Cell created:', testCell);
+
+            // Test rendering the cell
+            testCell.render(ctx);
+
+            document.getElementById('cellsCount').textContent = '1 (test)';
+            document.getElementById('errors').textContent = 'None - All working!';
+
+        } catch (error) {
+            console.error('❌ Error:', error);
+            document.getElementById('errors').textContent = error.message;
+
+            // Draw error on canvas
+            ctx.fillStyle = '#ff0000';
+            ctx.font = '16px Arial';
+            ctx.fillText('Error: ' + error.message, 10, 100);
+        }
+    </script>
+</body>
+
+</html>

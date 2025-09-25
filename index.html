@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cell Defense Simulator - 2D Evolution Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div id="gameContainer">
+        <header>
+            <h1>🧬 Cell Defense Simulator</h1>
+            <p>Watch cells evolve, compete, and adapt in real-time!</p>
+        </header>
+
+        <div id="controlPanel">
+            <div class="controls">
+                <button id="playPause">⏸️ Pause</button>
+                <button id="reset">🔄 Reset</button>
+                <button id="stepSimulation">⏭️ Step</button>
+            </div>
+
+            <div class="settings">
+                <label>Initial Cells: <input type="range" id="cellCount" min="10" max="200" value="50"></label>
+                <label>Food Spawn Rate: <input type="range" id="foodSpawnRate" min="0.1" max="10" value="2"
+                        step="0.1"></label>
+                <label>Mutation Rate: <input type="range" id="mutationRate" min="0.01" max="0.5" value="0.1"
+                        step="0.01"></label>
+                <label>Simulation Speed: <input type="range" id="simSpeed" min="0.1" max="3" value="1"
+                        step="0.1"></label>
+            </div>
+        </div>
+
+        <div id="gameArea">
+            <div id="canvasContainer">
+                <canvas id="gameCanvas" width="800" height="600"></canvas>
+                <div class="navigation-controls">
+                    <div class="nav-group zoom-controls">
+                        <button class="nav-btn" id="zoomIn">🔍+</button>
+                        <button class="nav-btn" id="zoomOut">🔍-</button>
+                        <span id="zoomLevel">100%</span>
+                    </div>
+                    <div class="nav-group">
+                        <button class="nav-btn" id="panUp">⬆️</button>
+                    </div>
+                    <div class="nav-group">
+                        <button class="nav-btn" id="panLeft">⬅️</button>
+                        <button class="nav-btn" id="panCenter">🎯</button>
+                        <button class="nav-btn" id="panRight">➡️</button>
+                    </div>
+                    <div class="nav-group">
+                        <button class="nav-btn" id="panDown">⬇️</button>
+                    </div>
+                    <div class="minimap">
+                        <div class="minimap-label">Map</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="infoPanel">
+                <div id="stats">
+                    <h3>📊 Population Stats</h3>
+                    <div id="populationInfo">
+                        <p>Total Cells: <span id="totalCells">0</span></p>
+                        <p>Generation: <span id="generation">1</span></p>
+                        <p>Tick: <span id="tick">0</span></p>
+                        <p>Food Particles: <span id="foodCount">0</span></p>
+                    </div>
+                </div>
+
+                <div id="roundStats">
+                    <h3>🏆 Tournament Round</h3>
+                    <div id="roundInfo">
+                        <p>Current Round: <span id="currentRound">1</span></p>
+                        <p>Round Status: <span id="roundStatus">waiting</span></p>
+                        <p>Time Left: <span id="roundTimeLeft">0</span>s</p>
+                        <p>Current Winners: <span id="roundWinners">0</span></p>
+                    </div>
+                    <div id="tournamentControls">
+                        <button id="startTournament">🏁 Start Tournament</button>
+                        <button id="nextRound">⏭️ Skip to Next Round</button>
+                    </div>
+                    <div id="champions">
+                        <h4>🏆 Recent Champions</h4>
+                        <div id="championsList"></div>
+                    </div>
+                </div>
+
+                <div id="traitDistribution">
+                    <h3>🧬 Defense Types</h3>
+                    <div class="trait-bars">
+                        <!-- Original Defense Types -->
+                        <div class="trait-bar">
+                            <span>🔸 Spikes</span>
+                            <div class="bar">
+                                <div class="fill spikes"></div>
+                            </div>
+                            <span id="spikesCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>☠️ Poison</span>
+                            <div class="bar">
+                                <div class="fill poison"></div>
+                            </div>
+                            <span id="poisonCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🛡️ Armor</span>
+                            <div class="bar">
+                                <div class="fill armor"></div>
+                            </div>
+                            <span id="armorCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>� Regen</span>
+                            <div class="bar">
+                                <div class="fill regen"></div>
+                            </div>
+                            <span id="regenCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>👻 Camo</span>
+                            <div class="bar">
+                                <div class="fill camo"></div>
+                            </div>
+                            <span id="camoCount">0</span>
+                        </div>
+                        <!-- New Advanced Defense Types -->
+                        <div class="trait-bar">
+                            <span>⚡ Shield</span>
+                            <div class="bar">
+                                <div class="fill shield"></div>
+                            </div>
+                            <span id="shieldCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🔆 Electric</span>
+                            <div class="bar">
+                                <div class="fill electric"></div>
+                            </div>
+                            <span id="electricCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🧲 Magnetic</span>
+                            <div class="bar">
+                                <div class="fill magnetic"></div>
+                            </div>
+                            <span id="magneticCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🌫️ Phase</span>
+                            <div class="bar">
+                                <div class="fill phase"></div>
+                            </div>
+                            <span id="phaseCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🐝 Swarm</span>
+                            <div class="bar">
+                                <div class="fill swarm"></div>
+                            </div>
+                            <span id="swarmCount">0</span>
+                        </div>
+                    </div>
+
+                    <h3>🔷 Cell Shapes</h3>
+                    <div class="trait-bars">
+                        <div class="trait-bar">
+                            <span>⭕ Circle</span>
+                            <div class="bar">
+                                <div class="fill shape-circle"></div>
+                            </div>
+                            <span id="circleCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>� Triangle</span>
+                            <div class="bar">
+                                <div class="fill shape-triangle"></div>
+                            </div>
+                            <span id="triangleCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>⬜ Square</span>
+                            <div class="bar">
+                                <div class="fill shape-square"></div>
+                            </div>
+                            <span id="squareCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>⬢ Hexagon</span>
+                            <div class="bar">
+                                <div class="fill shape-hexagon"></div>
+                            </div>
+                            <span id="hexagonCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>⭐ Star</span>
+                            <div class="bar">
+                                <div class="fill shape-star"></div>
+                            </div>
+                            <span id="starCount">0</span>
+                        </div>
+                    </div>
+
+                    <h3>🧬 Special Abilities</h3>
+                    <div class="trait-bars">
+                        <div class="trait-bar">
+                            <span>🌱 Photosynthesis</span>
+                            <div class="bar">
+                                <div class="fill ability-photosynthesis"></div>
+                            </div>
+                            <span id="photosynthesisCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🦠 Parasite</span>
+                            <div class="bar">
+                                <div class="fill ability-parasite"></div>
+                            </div>
+                            <span id="parasiteCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🐺 Pack Hunter</span>
+                            <div class="bar">
+                                <div class="fill ability-pack"></div>
+                            </div>
+                            <span id="pack_hunterCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🏰 Territorial</span>
+                            <div class="bar">
+                                <div class="fill ability-territorial"></div>
+                            </div>
+                            <span id="territorialCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>🧛 Vampire</span>
+                            <div class="bar">
+                                <div class="fill ability-vampire"></div>
+                            </div>
+                            <span id="energy_vampireCount">0</span>
+                        </div>
+                    </div>
+
+                    <h3>🎂 Life Stages</h3>
+                    <div class="trait-bars">
+                        <div class="trait-bar">
+                            <span>👶 Juvenile</span>
+                            <div class="bar">
+                                <div class="fill lifestage-juvenile"></div>
+                            </div>
+                            <span id="juvenileCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>👤 Adult</span>
+                            <div class="bar">
+                                <div class="fill lifestage-adult"></div>
+                            </div>
+                            <span id="adultCount">0</span>
+                        </div>
+                        <div class="trait-bar">
+                            <span>👴 Elder</span>
+                            <div class="bar">
+                                <div class="fill lifestage-elder"></div>
+                            </div>
+                            <span id="elderCount">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="chartContainer">
+            <canvas id="populationChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,591 @@
+/* Cell Defense Simulator Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #ffffff;
+    min-height: 100vh;
+}
+
+#gameContainer {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    background: linear-gradient(45deg, #00ff88, #00ccff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+header p {
+    font-size: 1.1rem;
+    opacity: 0.8;
+}
+
+#controlPanel {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.controls {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.controls button {
+    background: linear-gradient(45deg, #00ff88, #00ccff);
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    color: #000;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+}
+
+.controls button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
+}
+
+.controls button:active {
+    transform: translateY(0);
+}
+
+.settings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    align-items: center;
+}
+
+.settings label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.settings input[type="range"] {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.2);
+    outline: none;
+}
+
+.settings input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #00ff88, #00ccff);
+    cursor: pointer;
+}
+
+#gameArea {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+    position: relative;
+    align-items: flex-start;
+    max-width: 1200px;
+    margin: 0 auto 20px auto;
+}
+
+#gameCanvas {
+    border-radius: 15px;
+    background: #000;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    cursor: grab;
+    width: 800px;
+    height: 600px;
+}
+
+#gameCanvas:active {
+    cursor: grabbing;
+}
+
+#canvasContainer {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.navigation-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
+}
+
+.nav-group {
+    display: flex;
+    gap: 5px;
+}
+
+.nav-btn {
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: #fff;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-family: 'Orbitron', monospace;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.nav-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #00ff88;
+    box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.nav-btn:active {
+    background: rgba(0, 255, 136, 0.2);
+    transform: scale(0.95);
+}
+
+.zoom-controls .nav-btn {
+    min-width: 40px;
+}
+
+.minimap {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 120px;
+    height: 90px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    z-index: 10;
+}
+
+.minimap-label {
+    position: absolute;
+    top: -25px;
+    left: 0;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    font-family: 'Orbitron', monospace;
+}
+
+#infoPanel {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 15px;
+    min-width: 320px;
+    max-width: 360px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    height: fit-content;
+    overflow-y: auto;
+    max-height: 600px;
+}
+
+#infoPanel h3 {
+    margin-bottom: 10px;
+    margin-top: 15px;
+    color: #00ff88;
+    font-size: 1.1rem;
+}
+
+#infoPanel h3:first-child {
+    margin-top: 0;
+}
+
+#populationInfo p {
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+#populationInfo span {
+    font-weight: bold;
+    color: #00ccff;
+}
+
+/* Round Tournament Styles */
+#roundStats {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(0, 255, 136, 0.3);
+}
+
+#roundInfo p {
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+#roundInfo span {
+    font-weight: bold;
+}
+
+.status-starting {
+    color: #ffc107;
+}
+
+.status-active {
+    color: #28a745;
+}
+
+.status-ending {
+    color: #fd7e14;
+}
+
+.status-tournament_complete {
+    color: #6f42c1;
+}
+
+.status-waiting {
+    color: #6c757d;
+}
+
+#tournamentControls {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+#tournamentControls button {
+    flex: 1;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 25px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#tournamentControls button:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+#champions h4 {
+    color: #ffc107;
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.champion-entry {
+    background: rgba(255, 193, 7, 0.1);
+    border-radius: 5px;
+    padding: 8px;
+    margin-bottom: 5px;
+    border-left: 3px solid #ffc107;
+}
+
+.champion-info {
+    display: grid;
+    grid-template-columns: 30px 30px 30px 1fr;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.champion-round {
+    font-weight: bold;
+    color: #ffc107;
+}
+
+.champion-score {
+    text-align: right;
+    font-weight: bold;
+    color: #00ccff;
+}
+
+.trait-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.trait-bar {
+    display: grid;
+    grid-template-columns: 80px 1fr 40px;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.9rem;
+}
+
+.bar {
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 10px;
+}
+
+.fill.spikes {
+    background: linear-gradient(90deg, #ff6b6b, #ff8e8e);
+}
+
+.fill.poison {
+    background: linear-gradient(90deg, #51cf66, #8ce99a);
+}
+
+.fill.armor {
+    background: linear-gradient(90deg, #748ffc, #91a7ff);
+}
+
+.fill.regen {
+    background: linear-gradient(90deg, #ff9ff3, #faa2c1);
+}
+
+.fill.camo {
+    background: linear-gradient(90deg, #69db7c, #96f2d7);
+}
+
+/* Defense Mechanism Styles */
+.fill.armor {
+    background: linear-gradient(90deg, #6c757d, #adb5bd);
+}
+
+.fill.spikes {
+    background: linear-gradient(90deg, #dc3545, #f8d7da);
+}
+
+.fill.speed {
+    background: linear-gradient(90deg, #17a2b8, #b8daff);
+}
+
+.fill.regen {
+    background: linear-gradient(90deg, #28a745, #c3e6cb);
+}
+
+.fill.shield {
+    background: linear-gradient(90deg, #007bff, #b8daff);
+}
+
+.fill.stealth {
+    background: linear-gradient(90deg, #6c757d, #e9ecef);
+}
+
+.fill.toxin {
+    background: linear-gradient(90deg, #6f42c1, #d1ecf1);
+}
+
+.fill.swarm {
+    background: linear-gradient(90deg, #fd7e14, #ffeaa7);
+}
+
+.fill.energy {
+    background: linear-gradient(90deg, #ffc107, #fff3cd);
+}
+
+.fill.adaptive {
+    background: linear-gradient(90deg, #20c997, #d1ecf1);
+}
+
+/* Cell Shape Styles */
+.fill.shape-circle {
+    background: linear-gradient(90deg, #007bff, #cce5ff);
+}
+
+.fill.shape-triangle {
+    background: linear-gradient(90deg, #dc3545, #f8d7da);
+}
+
+.fill.shape-square {
+    background: linear-gradient(90deg, #28a745, #d4edda);
+}
+
+.fill.shape-hexagon {
+    background: linear-gradient(90deg, #ffc107, #fff3cd);
+}
+
+.fill.shape-oval {
+    background: linear-gradient(90deg, #6f42c1, #e2e3f3);
+}
+
+.fill.shape-star {
+    background: linear-gradient(90deg, #fd7e14, #ffeaa7);
+}
+
+.fill.shape-diamond {
+    background: linear-gradient(90deg, #17a2b8, #d1ecf1);
+}
+
+/* Special Ability Styles */
+.fill.ability-none {
+    background: linear-gradient(90deg, #6c757d, #e9ecef);
+}
+
+.fill.ability-photosynthesis {
+    background: linear-gradient(90deg, #28a745, #c3e6cb);
+}
+
+.fill.ability-parasite {
+    background: linear-gradient(90deg, #dc3545, #f8d7da);
+}
+
+.fill.ability-pack_hunter {
+    background: linear-gradient(90deg, #fd7e14, #ffeaa7);
+}
+
+.fill.ability-territorial {
+    background: linear-gradient(90deg, #17a2b8, #d1ecf1);
+}
+
+.fill.ability-migratory {
+    background: linear-gradient(90deg, #20c997, #d1ecf1);
+}
+
+.fill.ability-burrowing {
+    background: linear-gradient(90deg, #795548, #d7ccc8);
+}
+
+.fill.ability-leaping {
+    background: linear-gradient(90deg, #007bff, #cce5ff);
+}
+
+.fill.ability-splitting {
+    background: linear-gradient(90deg, #e83e8c, #f1c6e7);
+}
+
+.fill.ability-fusion {
+    background: linear-gradient(90deg, #6f42c1, #e2e3f3);
+}
+
+.fill.ability-time_dilation {
+    background: linear-gradient(90deg, #3f51b5, #c5cae9);
+}
+
+.fill.ability-energy_vampire {
+    background: linear-gradient(90deg, #9c27b0, #e1bee7);
+}
+
+.fill.ability-shape_shift {
+    background: linear-gradient(90deg, #ff9800, #ffcc02);
+}
+
+.fill.ability-invisibility {
+    background: linear-gradient(90deg, #607d8b, #b0bec5);
+}
+
+/* Life Stage Styles */
+.fill.stage-juvenile {
+    background: linear-gradient(90deg, #81c784, #c8e6c9);
+}
+
+.fill.stage-adult {
+    background: linear-gradient(90deg, #42a5f5, #bbdefb);
+}
+
+.fill.stage-elder {
+    background: linear-gradient(90deg, #ba68c8, #e1bee7);
+}
+
+#chartContainer {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#populationChart {
+    width: 100% !important;
+    max-height: 300px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    #gameArea {
+        flex-direction: column;
+    }
+
+    #gameCanvas {
+        width: 100%;
+        height: auto;
+    }
+
+    #infoPanel {
+        min-width: unset;
+    }
+}
+
+@media (max-width: 768px) {
+    .settings {
+        grid-template-columns: 1fr;
+    }
+
+    .controls {
+        flex-wrap: wrap;
+    }
+
+    header h1 {
+        font-size: 2rem;
+    }
+}
+
+/* Animation for cell particles */
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 0.8;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+.cell-pulse {
+    animation: pulse 2s infinite;
+}
+
+/* Loading animation */
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
