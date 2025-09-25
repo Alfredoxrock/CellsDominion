@@ -24,19 +24,108 @@
             </div>
 
             <div class="settings">
-                <label>Initial Cells: <input type="range" id="cellCount" min="10" max="200" value="50"></label>
-                <label>Food Spawn Rate: <input type="range" id="foodSpawnRate" min="0.1" max="10" value="2"
-                        step="0.1"></label>
-                <label>Mutation Rate: <input type="range" id="mutationRate" min="0.01" max="0.5" value="0.1"
-                        step="0.01"></label>
-                <label>Simulation Speed: <input type="range" id="simSpeed" min="0.1" max="3" value="1"
-                        step="0.1"></label>
+                <h4>🎛️ Basic Controls</h4>
+                <label>Initial Cells: <input type="range" id="cellCount" min="10" max="200" value="50"><span
+                        id="cellCountValue">50</span></label>
+                <label>Simulation Speed: <input type="range" id="simSpeed" min="0.1" max="3" value="1" step="0.1"><span
+                        id="simSpeedValue">1.0</span></label>
+
+                <h4>🍎 Resource Controls</h4>
+                <label>Food Spawn Rate: <input type="range" id="foodSpawnRate" min="0.1" max="10" value="2.5"
+                        step="0.1"><span id="foodSpawnRateValue">2.5</span></label>
+                <label>Max Food: <input type="range" id="maxFood" min="50" max="2000" value="500" step="50"><span
+                        id="maxFoodValue">500</span></label>
+
+                <h4>🧬 Evolution Controls</h4>
+                <label>Mutation Rate: <input type="range" id="mutationRate" min="0.01" max="0.5" value="0.15"
+                        step="0.01"><span id="mutationRateValue">0.15</span></label>
+                <label>Genetic Drift: <input type="range" id="geneticDrift" min="0.01" max="0.3" value="0.08"
+                        step="0.01"><span id="geneticDriftValue">0.08</span></label>
+
+                <h4>🐣 Reproduction Controls</h4>
+                <label>Birth Rate: <input type="range" id="birthRate" min="0.1" max="3.0" value="1.2" step="0.1"><span
+                        id="birthRateValue">1.2</span></label>
+                <label>Mitosis Cooldown: <input type="range" id="mitosisCooldown" min="100" max="1000" value="400"
+                        step="50"><span id="mitosisCooldownValue">400</span></label>
+                <label>Energy Threshold: <input type="range" id="energyThreshold" min="0.3" max="0.9" value="0.6"
+                        step="0.05"><span id="energyThresholdValue">0.60</span></label>
+
+                <h4>🦠 Disease Controls</h4>
+                <label>Virus Spawn Rate: <input type="range" id="virusSpawnRate" min="0.001" max="0.02" value="0.005"
+                        step="0.001"><span id="virusSpawnRateValue">0.005</span></label>
+                <label>Max Viruses: <input type="range" id="maxViruses" min="5" max="50" value="15"><span
+                        id="maxVirusesValue">15</span></label>
+
+                <h4>🏘️ Colony Controls</h4>
+                <label>Colony Formation: <input type="range" id="colonyThreshold" min="2" max="10" value="3"><span
+                        id="colonyThresholdValue">3</span></label>
+                <label>Max Colony Size: <input type="range" id="maxColonySize" min="10" max="100" value="25"><span
+                        id="maxColonySizeValue">25</span></label>
+
+                <h4>⚡ Selection Controls</h4>
+                <label>Selection Pressure: <input type="range" id="selectionPressure" min="0.01" max="0.2" value="0.05"
+                        step="0.01"><span id="selectionPressureValue">0.05</span></label>
+                <label>Min Population: <input type="range" id="minPopulation" min="10" max="200" value="50"><span
+                        id="minPopulationValue">50</span></label>
+                <label>Max Population: <input type="range" id="maxPopulation" min="500" max="5000" value="2000"
+                        step="100"><span id="maxPopulationValue">2000</span></label>
+            </div>
+        </div>
+
+        <!-- God Mode Panel - Moved above canvas -->
+        <div id="godModePanel">
+            <h3>� God Mode Controls</h3>
+            <div class="god-controls">
+                <div class="god-section">
+                    <h4>🍎 Resources</h4>
+                    <button class="god-btn" id="spawnFood">Drop Food</button>
+                    <button class="god-btn" id="famine">Cause Famine</button>
+                    <button class="god-btn" id="abundance">Create Abundance</button>
+                </div>
+
+                <div class="god-section">
+                    <h4>☄️ Disasters</h4>
+                    <button class="god-btn" id="meteor">Meteor Strike</button>
+                    <button class="god-btn" id="plague">Plague Outbreak</button>
+                    <button class="god-btn" id="toxicSpill">Toxic Spill</button>
+                    <button class="god-btn" id="radiation">Radiation Storm</button>
+                </div>
+
+                <div class="god-section">
+                    <h4>🌡️ Climate</h4>
+                    <button class="god-btn" id="heatwave">Heat Wave</button>
+                    <button class="god-btn" id="iceage">Ice Age</button>
+                    <button class="god-btn" id="normalClimate">Restore Normal</button>
+                </div>
+
+                <div class="god-section">
+                    <h4>🧬 Evolution</h4>
+                    <button class="god-btn" id="massExtinction">Mass Extinction</button>
+                    <button class="god-btn" id="mutationBoost">Mutation Boost</button>
+                    <button class="god-btn" id="superCell">Create Super Cell</button>
+                </div>
+
+                <div class="god-section">
+                    <h4>🌍 Environment</h4>
+                    <div class="slider-control">
+                        <label>Temperature: <span id="tempValue">50%</span></label>
+                        <input type="range" id="tempSlider" min="0" max="100" value="50">
+                    </div>
+                    <div class="slider-control">
+                        <label>Toxicity: <span id="toxicValue">0%</span></label>
+                        <input type="range" id="toxicSlider" min="0" max="100" value="0">
+                    </div>
+                    <div class="slider-control">
+                        <label>Radiation: <span id="radiationValue">0%</span></label>
+                        <input type="range" id="radiationSlider" min="0" max="100" value="0">
+                    </div>
+                </div>
             </div>
         </div>
 
         <div id="gameArea">
             <div id="canvasContainer">
-                <canvas id="gameCanvas" width="800" height="600"></canvas>
+                <canvas id="gameCanvas" width="1200" height="800"></canvas>
             </div>
 
             <div id="navigationPanel">
@@ -76,83 +165,21 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- God Mode Panel -->
-            <div id="godModePanel">
-                <h3>🌟 God Mode Controls</h3>
-                <div class="god-controls">
-                    <div class="god-section">
-                        <h4>🍎 Resources</h4>
-                        <button class="god-btn" id="spawnFood">Drop Food</button>
-                        <button class="god-btn" id="famine">Cause Famine</button>
-                        <button class="god-btn" id="abundance">Create Abundance</button>
-                    </div>
-                    
-                    <div class="god-section">
-                        <h4>☄️ Disasters</h4>
-                        <button class="god-btn" id="meteor">Meteor Strike</button>
-                        <button class="god-btn" id="plague">Plague Outbreak</button>
-                        <button class="god-btn" id="toxicSpill">Toxic Spill</button>
-                        <button class="god-btn" id="radiation">Radiation Storm</button>
-                    </div>
-                    
-                    <div class="god-section">
-                        <h4>🌡️ Climate</h4>
-                        <button class="god-btn" id="heatwave">Heat Wave</button>
-                        <button class="god-btn" id="iceage">Ice Age</button>
-                        <button class="god-btn" id="normalClimate">Restore Normal</button>
-                    </div>
-                    
-                    <div class="god-section">
-                        <h4>🧬 Evolution</h4>
-                        <button class="god-btn" id="massExtinction">Mass Extinction</button>
-                        <button class="god-btn" id="mutationBoost">Mutation Boost</button>
-                        <button class="god-btn" id="superCell">Create Super Cell</button>
-                    </div>
-                    
-                    <div class="god-section">
-                        <h4>🌍 Environment</h4>
-                        <div class="slider-control">
-                            <label>Temperature: <span id="tempValue">50%</span></label>
-                            <input type="range" id="tempSlider" min="0" max="100" value="50">
-                        </div>
-                        <div class="slider-control">
-                            <label>Toxicity: <span id="toxicValue">0%</span></label>
-                            <input type="range" id="toxicSlider" min="0" max="100" value="0">
-                        </div>
-                        <div class="slider-control">
-                            <label>Radiation: <span id="radiationValue">0%</span></label>
-                            <input type="range" id="radiationSlider" min="0" max="100" value="0">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+        <!-- Stats and Info moved below canvas -->
+        <div id="statsContainer">
             <div id="infoPanel">
-                <div id="stats">
-                    <h3>📊 Population Stats</h3>
+                <div id="populationStats">
+                    <h3>📊 Ecosystem Stats</h3>
                     <div id="populationInfo">
                         <p>Total Cells: <span id="totalCells">0</span></p>
                         <p>Generation: <span id="generation">1</span></p>
-                        <p>Tick: <span id="tick">0</span></p>
+                        <p>Ecosystem Age: <span id="tick">0</span></p>
                         <p>Food Particles: <span id="foodCount">0</span></p>
-                    </div>
-                </div>
-
-                <div id="roundStats">
-                    <h3>🏆 Tournament Round</h3>
-                    <div id="roundInfo">
-                        <p>Current Round: <span id="currentRound">1</span></p>
-                        <p>Round Status: <span id="roundStatus">waiting</span></p>
-                        <p>Current Winners: <span id="roundWinners">0</span></p>
-                    </div>
-                    <div id="tournamentControls">
-                        <button id="startTournament">🏁 Start Tournament</button>
-                        <button id="nextRound">⏭️ Skip to Next Round</button>
-                    </div>
-                    <div id="champions">
-                        <h4>🏆 Recent Champions</h4>
-                        <div id="championsList"></div>
+                        <p>Active Colonies: <span id="activeColonies">0</span></p>
+                        <p>Growth Rate: <span id="growthRate">+0</span>/tick</p>
+                        <p>Avg Fitness: <span id="avgFitness">0.00</span></p>
                     </div>
                 </div>
 
@@ -337,10 +364,10 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div id="chartContainer">
-            <canvas id="populationChart" width="400" height="200"></canvas>
+            <div id="chartContainer">
+                <canvas id="populationChart" width="400" height="200"></canvas>
+            </div>
         </div>
     </div>
 

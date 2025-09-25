@@ -89,8 +89,18 @@ class UIManager {
         document.getElementById('tick').textContent = stats.tick;
         document.getElementById('foodCount').textContent = stats.foodCount;
 
-        // Update round information
-        this.updateRoundStats(stats);
+        // Update new ecosystem stats
+        const activeColoniesEl = document.getElementById('activeColonies');
+        const growthRateEl = document.getElementById('growthRate');
+        const avgFitnessEl = document.getElementById('avgFitness');
+
+        if (activeColoniesEl) activeColoniesEl.textContent = stats.activeColonies || 0;
+        if (growthRateEl) {
+            const growth = stats.populationGrowthRate || 0;
+            growthRateEl.textContent = growth >= 0 ? `+${growth}` : growth;
+            growthRateEl.style.color = growth >= 0 ? '#00ff88' : '#ff4444';
+        }
+        if (avgFitnessEl) avgFitnessEl.textContent = (stats.averageFitness || 0).toFixed(2);
 
         // Update trait distribution
         this.updateTraitBars(stats.traitDistribution);

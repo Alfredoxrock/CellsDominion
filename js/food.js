@@ -175,6 +175,10 @@ class FoodManager {
         this.spawnRate = rate;
     }
 
+    setMaxFood(maxFood) {
+        this.maxFood = maxFood;
+    }
+
     getStats() {
         return {
             totalFood: this.food.length,

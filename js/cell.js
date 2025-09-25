@@ -223,10 +223,17 @@ class Cell {
             // Basic physical traits
             health: traits.health || 80 + Math.random() * 40, // 80-120
             maxHealth: traits.maxHealth || traits.health || 100,
-            size: traits.size || 8 + Math.random() * 8, // 8-16 radius
+            size: traits.size || 8 + Math.random() * 8, // 8-16 radius (starting size)
+            maxSize: traits.maxSize || (traits.size || 16) + Math.random() * 12, // Maximum growth size: 16-28
+            growthRate: traits.growthRate || 0.01 + Math.random() * 0.02, // Growth per food consumed: 0.01-0.03 (increased)
             speed: traits.speed || 0.5 + Math.random() * 1.5, // 0.5-2.0
             energy: traits.energy || 60 + Math.random() * 40, // 60-100
             maxEnergy: traits.maxEnergy || traits.energy || 80,
+
+            // Lifespan and aging mechanics
+            baseLifespan: traits.baseLifespan || 800000 + Math.random() * 600000, // Base lifespan: 800,000-1,400,000 ticks (100x increase)
+            lifespanMultiplier: traits.lifespanMultiplier || 100.0, // Affected by size (100x increase)
+            agingRate: traits.agingRate || 0.8 + Math.random() * 0.4, // How fast they age: 0.8-1.2
 
             // Shape and defense
             shape: traits.shape || this.randomShape(),
@@ -260,15 +267,38 @@ class Cell {
         this.radius = this.traits.size;
         this.mass = this.calculateMass();
         this.hitbox = this.calculateHitbox();
+        this.maxLifespan = this.calculateMaxLifespan(); // Initialize lifespan
 
         // Enhanced state variables
         this.age = 0;
+        this.maxLifespan = this.calculateMaxLifespan(); // Dynamic lifespan based on size
+        this.growthPoints = 0; // Accumulated growth from food
+        this.maturityLevel = 0; // 0=juvenile, 1=adult, 2=elder
         this.generation = traits.generation || 1;
         this.reproduced = false;
         this.target = null;
         this.lastReproduction = 0;
+        this.lastFoodTime = 0; // When cell last consumed food
+        this.lastGrowthTime = 0; // When cell last grew
+        this.justAte = null; // Track what the cell just ate (food/predation)
+        this.reproductiveSuccess = 0; // Number of successful reproductions
+        this.predationSuccess = 0; // Number of successful predations
+        this.combatWins = 0; // Combat victories
+        this.combatLosses = 0; // Combat defeats
+        this.environmentalStress = 0; // Current environmental pressure (0-1)
         this.allies = []; // For pack behavior
         this.territory = null; // For territorial cells
+
+        // Visual effect timers
+        this.growthRingTimer = 0;
+        this.growthRingSize = this.radius;
+        this.shockwaveTimer = 0;
+        this.shockwaveSize = this.radius;
+
+        // Fragmentation system
+        this.fragmenting = false;
+        this.fragments = [];
+        this.lastDamageTime = 0;
 
         // Colony/Structure system
         this.colony = null; // Reference to colony this cell belongs to
@@ -384,7 +414,7 @@ class Cell {
     }
 
     determineInitialRole() {
-        // Determine initial colony role based on traits with advanced specialization
+        // Determine initial role based on traits - now includes lifestyle choices
         const speed = this.traits.speed;
         const size = this.traits.size;
         const health = this.traits.maxHealth;
@@ -393,77 +423,62 @@ class Cell {
         const specialAbility = this.traits.specialAbility;
         const defenseType = this.traits.defenseType;
 
-        // Advanced colony castes with specific roles
-        const roleScores = {
-            warrior: 0,
-            worker: 0,
-            breeder: 0,
-            scout: 0,
-            guardian: 0,
-            builder: 0
+        // Primary lifestyle roles (sedentary vs nomadic vs adventurer)
+        const lifestyleScores = {
+            sedentary: 0,    // Builds permanent structures, rarely moves
+            adventurer: 0,   // Explores from a home base
+            nomad: 0         // Constantly moving with groups
         };
 
-        // Warrior traits: high health, combat-oriented defenses
-        if (health > 120 && (defenseType === 'spikes' || defenseType === 'armor' || defenseType === 'electric')) {
-            roleScores.warrior += 3;
-        }
-        if (socialBehavior === 'aggressive') roleScores.warrior += 2;
-        if (size > 15) roleScores.warrior += 1;
+        // Sedentary traits: cooperative, defensive, energy-efficient
+        if (socialBehavior === 'cooperative') lifestyleScores.sedentary += 2;
+        if (defenseType === 'armor' || defenseType === 'barrier' || defenseType === 'shield') lifestyleScores.sedentary += 2;
+        if (specialAbility === 'photosynthesis' || specialAbility === 'fusion') lifestyleScores.sedentary += 2;
+        if (speed < 1.5) lifestyleScores.sedentary += 1; // Slower cells prefer stationary life
+        if (size > 14) lifestyleScores.sedentary += 1; // Larger cells are less mobile
 
-        // Worker traits: efficient metabolism, medium stats
-        if (specialAbility === 'photosynthesis' || this.traits.metabolismType === 'efficient') {
-            roleScores.worker += 3;
-        }
-        if (socialBehavior === 'cooperative') roleScores.worker += 2;
-        if (size >= 8 && size <= 14) roleScores.worker += 1; // Medium size optimal
+        // Adventurer traits: balanced stats, exploration abilities, independent
+        if (speed >= 1.5 && speed <= 2.5) lifestyleScores.adventurer += 2; // Medium speed
+        if (specialAbility === 'territorial' || specialAbility === 'burrowing') lifestyleScores.adventurer += 2;
+        if (this.traits.visionRange > 70) lifestyleScores.adventurer += 1;
+        if (size >= 10 && size <= 15) lifestyleScores.adventurer += 1; // Medium size
+        if (energy > 80) lifestyleScores.adventurer += 1; // Need energy for exploration
 
-        // Breeder traits: high energy, reproductive focus
-        if (energy > 100 && health > 100) {
-            roleScores.breeder += 3;
-        }
-        if (this.traits.temperatureTolerance > 0.6) roleScores.breeder += 1;
-        if (size > 12) roleScores.breeder += 1; // Larger for reproduction
+        // Nomad traits: high mobility, pack hunting, migratory
+        if (speed > 2.0) lifestyleScores.nomad += 2; // Fast movement
+        if (specialAbility === 'migratory' || specialAbility === 'pack_hunter' || specialAbility === 'leaping') lifestyleScores.nomad += 3;
+        if (socialBehavior === 'aggressive') lifestyleScores.nomad += 1; // Aggressive nomads
+        if (size < 12) lifestyleScores.nomad += 1; // Smaller for mobility
 
-        // Scout traits: high speed, vision, exploration abilities
-        if (speed > 2.0 && this.traits.visionRange > 80) {
-            roleScores.scout += 3;
+        // Environmental influences
+        if (Math.random() < 0.3) {
+            // 30% chance for environmental/random influence
+            if (Math.random() < 0.4) lifestyleScores.nomad += 1;
+            if (Math.random() < 0.4) lifestyleScores.adventurer += 1;
+            if (Math.random() < 0.4) lifestyleScores.sedentary += 1;
         }
-        if (specialAbility === 'migratory' || specialAbility === 'leaping') {
-            roleScores.scout += 2;
-        }
-        if (size < 10) roleScores.scout += 1; // Smaller for speed
 
-        // Guardian traits: defensive focus, territorial
-        if (defenseType === 'barrier' || defenseType === 'shield' || defenseType === 'poison') {
-            roleScores.guardian += 2;
-        }
-        if (socialBehavior === 'territorial') roleScores.guardian += 2;
-        if (this.traits.visionRange > 70) roleScores.guardian += 1;
+        // Find best lifestyle
+        let bestLifestyle = 'adventurer'; // Default
+        let highestScore = lifestyleScores.adventurer;
 
-        // Builder traits: construction and colony formation
-        if (specialAbility === 'fusion' || socialBehavior === 'cooperative') {
-            roleScores.builder += 2;
-        }
-        if (size >= 12 && energy > 90) roleScores.builder += 1;
-
-        // Find the highest scoring role
-        let bestRole = 'worker'; // Default role
-        let highestScore = roleScores.worker;
-
-        Object.entries(roleScores).forEach(([role, score]) => {
+        Object.entries(lifestyleScores).forEach(([lifestyle, score]) => {
             if (score > highestScore) {
                 highestScore = score;
-                bestRole = role;
+                bestLifestyle = lifestyle;
             }
         });
 
-        // Add some randomness to prevent too much determinism
-        if (Math.random() < 0.2) {
-            const roles = Object.keys(roleScores);
-            bestRole = roles[Math.floor(Math.random() * roles.length)];
+        // If there's a tie, add some randomness
+        const tiedLifestyles = Object.entries(lifestyleScores)
+            .filter(([_, score]) => score === highestScore)
+            .map(([lifestyle, _]) => lifestyle);
+
+        if (tiedLifestyles.length > 1) {
+            bestLifestyle = tiedLifestyles[Math.floor(Math.random() * tiedLifestyles.length)];
         }
 
-        return bestRole;
+        return bestLifestyle;
     }
 
     generateDNA() {
@@ -481,7 +496,7 @@ class Cell {
             shape: this.encodeTraitString(this.traits.shape),
             ability: this.encodeTraitString(this.traits.specialAbility)
         };
-        
+
         return genes;
     }
 
@@ -504,19 +519,19 @@ class Cell {
     calculateGeneExpression() {
         // Determine how genes are expressed based on environmental factors and age
         const expression = {};
-        
+
         // Age affects gene expression
-        const ageModifier = this.age < this.maturityAge ? 0.8 : 
-                           this.age < this.elderAge ? 1.0 : 0.9;
-        
+        const ageModifier = this.age < this.maturityAge ? 0.8 :
+            this.age < this.elderAge ? 1.0 : 0.9;
+
         // Health affects gene expression
         const healthModifier = this.traits.health / this.traits.maxHealth;
-        
+
         // Calculate expression levels for each gene
         Object.keys(this.dna).forEach(gene => {
             expression[gene] = (this.dna[gene] / 255) * ageModifier * healthModifier;
         });
-        
+
         return expression;
     }
 
@@ -545,6 +560,227 @@ class Cell {
             diamond: 0.95
         };
         return this.radius * (shapeFactors[this.traits.shape] || 1.0);
+    }
+
+    // Calculate maximum lifespan based on size (bigger = longer life)
+    calculateMaxLifespan() {
+        const sizeBonus = (this.traits.size / this.traits.maxSize) * 0.5; // Up to 50% bonus for max size
+        const lifespanMultiplier = this.traits.lifespanMultiplier + sizeBonus;
+        return Math.floor(this.traits.baseLifespan * lifespanMultiplier);
+    }
+
+    // Process cell growth from consuming food - EXPONENTIAL GROWTH SYSTEM
+    grow(nutritionValue) {
+        if (this.traits.size >= this.traits.maxSize) {
+            // Check for fragmentation if at max size
+            this.checkForFragmentation();
+            return false; // Cannot grow beyond max size
+        }
+
+        this.growthPoints += nutritionValue * this.traits.growthRate;
+
+        // EXPONENTIAL GROWTH: Growth rate increases with current size
+        const exponentialFactor = Math.pow(1.1, this.traits.size / 10); // Exponential scaling
+        const growthThreshold = Math.max(0.5, this.traits.size * 1.5 / exponentialFactor); // Lower threshold for larger cells
+
+        if (this.growthPoints >= growthThreshold) {
+            const oldSize = this.traits.size;
+
+            // EXPONENTIAL GROWTH CALCULATION
+            const baseGrowthAmount = this.growthPoints * 0.3; // Base growth
+            const exponentialGrowth = baseGrowthAmount * exponentialFactor; // Exponential multiplier
+            const finalGrowthAmount = Math.min(exponentialGrowth, this.traits.maxSize - this.traits.size);
+
+            this.traits.size = Math.min(this.traits.maxSize, this.traits.size + finalGrowthAmount);
+            this.radius = this.traits.size;
+            this.growthPoints = 0;
+            this.lastGrowthTime = this.age;
+
+            // Growing increases health and energy capacity exponentially
+            const sizeIncrease = this.traits.size - oldSize;
+            const statMultiplier = Math.pow(1.2, sizeIncrease); // Exponential stat growth
+
+            this.traits.maxHealth += sizeIncrease * 12 * statMultiplier; // Enhanced health growth
+            this.traits.maxEnergy += sizeIncrease * 10 * statMultiplier; // Enhanced energy growth
+
+            // Immediate exponential stat boost from growth
+            this.traits.health += sizeIncrease * 8 * statMultiplier;
+            this.traits.energy += sizeIncrease * 6 * statMultiplier;
+
+            // Recalculate derived properties
+            this.mass = this.calculateMass();
+            this.hitbox = this.calculateHitbox();
+            this.maxLifespan = this.calculateMaxLifespan();
+
+            // Update maturity level
+            this.updateMaturityLevel();
+
+            // VISUAL GROWTH EFFECT
+            this.addGrowthEffect(sizeIncrease);
+
+            console.log(`🌱 ${this.name} grew EXPONENTIALLY from ${oldSize.toFixed(1)} to ${this.traits.size.toFixed(1)} (+${sizeIncrease.toFixed(2)}) (lifespan: ${this.maxLifespan})`);
+
+            // Check for fragmentation after significant growth
+            if (this.traits.size > this.traits.maxSize * 0.9) {
+                this.checkForFragmentation();
+            }
+
+            return true;
+        }
+        return false;
+    }
+
+    // FRAGMENTATION SYSTEM: Large cells can break into pieces
+    checkForFragmentation() {
+        // Only fragment if cell is large enough and under stress/damage
+        const fragmentationThreshold = this.traits.maxSize * 0.8; // 80% of max size
+        const healthRatio = this.traits.health / this.traits.maxHealth;
+        const energyRatio = this.traits.energy / this.traits.maxEnergy;
+
+        if (this.traits.size < fragmentationThreshold) return false;
+
+        // Fragmentation triggers
+        let fragmentationChance = 0;
+
+        // Automatic fragmentation for extremely large cells
+        if (this.traits.size >= this.traits.maxSize * 0.95) {
+            fragmentationChance += 0.1; // 10% chance per tick when near max size
+        }
+
+        // Stress-induced fragmentation
+        if (healthRatio < 0.3) fragmentationChance += 0.15; // Low health increases chance
+        if (energyRatio < 0.2) fragmentationChance += 0.1;  // Low energy increases chance
+
+        // Combat damage fragmentation
+        if (this.lastDamageTime && (this.age - this.lastDamageTime) < 30) {
+            fragmentationChance += 0.08; // Recent damage increases chance
+        }
+
+        // Environmental stress fragmentation
+        if (this.environmentalStress > 0.7) {
+            fragmentationChance += 0.05;
+        }
+
+        if (Math.random() < fragmentationChance) {
+            return this.fragment();
+        }
+
+        return false;
+    }
+
+    // Execute cell fragmentation
+    fragment() {
+        // Calculate number of fragments (2-4 pieces based on size)
+        const fragmentCount = Math.floor(2 + (this.traits.size / this.traits.maxSize) * 2);
+        const fragmentSize = this.traits.size / Math.sqrt(fragmentCount); // Volume conservation
+
+        // Mark this cell for fragmentation (handled by simulation)
+        this.fragmenting = true;
+        this.fragmentCount = fragmentCount;
+        this.fragmentSize = Math.max(5, fragmentSize); // Minimum fragment size
+
+        // Create fragment data for simulation to process
+        this.fragments = [];
+        for (let i = 0; i < fragmentCount; i++) {
+            const angle = (i / fragmentCount) * Math.PI * 2;
+            const distance = this.radius * 1.5;
+
+            this.fragments.push({
+                x: this.x + Math.cos(angle) * distance,
+                y: this.y + Math.sin(angle) * distance,
+                size: this.fragmentSize,
+                health: this.traits.health / fragmentCount,
+                energy: this.traits.energy / fragmentCount,
+                traits: {
+                    ...this.traits,
+                    size: this.fragmentSize,
+                    maxSize: this.traits.maxSize * 0.8, // Fragments have slightly reduced max size
+                    health: this.traits.health / fragmentCount,
+                    maxHealth: this.traits.maxHealth / fragmentCount,
+                    energy: this.traits.energy / fragmentCount,
+                    maxEnergy: this.traits.maxEnergy / fragmentCount,
+                    lifestage: 'juvenile' // Fragments restart as juveniles
+                },
+                parentName: this.name,
+                generation: this.generation + 1
+            });
+        }
+
+        // Visual effect for fragmentation
+        this.addFragmentationEffect();
+
+        console.log(`💥 ${this.name} fragmented into ${fragmentCount} pieces! (Size: ${this.traits.size.toFixed(1)} -> ${this.fragmentSize.toFixed(1)} each)`);
+
+        // Kill the original cell (fragments will be created by simulation)
+        this.traits.health = 0;
+        return true;
+    }
+
+    // Visual effect for cell growth
+    addGrowthEffect(sizeIncrease) {
+        // Add particle effects to show growth
+        const particleCount = Math.floor(sizeIncrease * 8) + 4; // More particles for bigger growth
+        for (let i = 0; i < particleCount; i++) {
+            const angle = (i / particleCount) * Math.PI * 2;
+            const distance = this.radius + 5;
+            this.particleEffects.push({
+                x: this.x + Math.cos(angle) * distance,
+                y: this.y + Math.sin(angle) * distance,
+                vx: Math.cos(angle) * 1.5,
+                vy: Math.sin(angle) * 1.5,
+                size: 2 + Math.random() * 3,
+                life: 50,
+                maxLife: 50,
+                color: '#00ff66',
+                type: 'growth'
+            });
+        }
+
+        // Add growth ring effect
+        this.growthRingTimer = 60; // Show growth ring for 1 second
+        this.growthRingSize = this.radius * 1.5;
+    }
+
+    // Visual effect for cell fragmentation
+    addFragmentationEffect() {
+        // Explosive particle effect for fragmentation
+        const particleCount = Math.floor(this.traits.size * 2) + 20; // Many particles for dramatic effect
+        for (let i = 0; i < particleCount; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 6; // Fast particles
+            this.particleEffects.push({
+                x: this.x,
+                y: this.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: 1 + Math.random() * 4,
+                life: 80,
+                maxLife: 80,
+                color: '#ff6600', // Orange explosion color
+                type: 'fragmentation'
+            });
+        }
+
+        // Add shockwave effect
+        this.shockwaveTimer = 40; // Show shockwave for fragmentation
+        this.shockwaveSize = this.radius * 0.5;
+    }
+
+    // Update maturity level based on size and age
+    updateMaturityLevel() {
+        const sizeRatio = this.traits.size / this.traits.maxSize;
+        const ageRatio = this.age / this.maxLifespan;
+
+        if (sizeRatio < 0.4 || ageRatio < 0.2) {
+            this.maturityLevel = 0; // Juvenile
+            this.traits.lifestage = 'juvenile';
+        } else if (sizeRatio < 0.8 || ageRatio < 0.7) {
+            this.maturityLevel = 1; // Adult
+            this.traits.lifestage = 'adult';
+        } else {
+            this.maturityLevel = 2; // Elder
+            this.traits.lifestage = 'elder';
+        }
     }
 
     getColorByTraits() {
@@ -602,6 +838,19 @@ class Cell {
     update(cells, food, boundaries, environment = {}) {
         this.age++;
 
+        // ENHANCED AGING: Check lifespan and apply age-related effects
+        this.updateMaturityLevel();
+        if (this.age >= this.maxLifespan * this.traits.agingRate) {
+            // Natural death from old age
+            console.log(`⚰️ ${this.name} died of old age at ${this.age} ticks (max: ${this.maxLifespan})`);
+            return false;
+        }
+
+        // Age-related health decline for elders
+        if (this.maturityLevel === 2 && Math.random() < 0.002) { // 0.2% chance per tick for elders
+            this.traits.health -= 1;
+        }
+
         // Lifecycle progression
         this.updateLifecycle();
 
@@ -637,6 +886,21 @@ class Cell {
 
         // Update visual effects
         this.updateVisualEffects();
+
+        // Update growth ring timer
+        if (this.growthRingTimer > 0) {
+            this.growthRingTimer--;
+        }
+
+        // Update fragmentation shockwave timer
+        if (this.shockwaveTimer > 0) {
+            this.shockwaveTimer--;
+        }
+
+        // Check for fragmentation (for large stressed cells)
+        if (this.traits.size > this.traits.maxSize * 0.7) {
+            this.checkForFragmentation();
+        }
 
         // Update particle effects
         this.updateParticleEffects();
@@ -1546,7 +1810,16 @@ class Cell {
     }
 
     applyRoleBasedMovement() {
-        switch(this.colonyRole) {
+        switch (this.colonyRole) {
+            case 'sedentary':
+                this.applySedentaryBehavior();
+                break;
+            case 'adventurer':
+                this.applyAdventurerBehavior();
+                break;
+            case 'nomad':
+                this.applyNomadBehavior();
+                break;
             case 'warrior':
                 this.applyWarriorBehavior();
                 break;
@@ -1572,6 +1845,228 @@ class Cell {
         }
     }
 
+    // Sedentary behavior - builds and maintains structures
+    applySedentaryBehavior() {
+        if (!this.colony) {
+            // Look for nearby sedentary cells to form a colony
+            this.seekColonyFormation();
+        } else {
+            const center = this.colony.structure.center;
+            const distanceFromCenter = Math.sqrt(
+                (this.x - center.x) ** 2 + (this.y - center.y) ** 2
+            );
+
+            // Stay very close to colony structure
+            const maxDistance = 40;
+            if (distanceFromCenter > maxDistance) {
+                // Return to colony
+                this.moveTowards(center.x, center.y);
+            } else {
+                // Minimal movement - focus on structure maintenance
+                this.vx += (Math.random() - 0.5) * 0.03;
+                this.vy += (Math.random() - 0.5) * 0.03;
+
+                // Occasionally adjust position to maintain structure integrity
+                if (Math.random() < 0.1) {
+                    this.optimizeStructuralPosition();
+                }
+            }
+        }
+    }
+
+    // Adventurer behavior - explores and brings resources back to base
+    applyAdventurerBehavior() {
+        const distanceFromHome = Math.sqrt(
+            (this.x - this.homePosition.x) ** 2 + (this.y - this.homePosition.y) ** 2
+        );
+
+        if (distanceFromHome > this.maxDistanceFromHome) {
+            // Too far from home - return
+            this.moveTowards(this.homePosition.x, this.homePosition.y);
+
+            // If we're back home and have energy, consider reproducing
+            if (distanceFromHome < 50 && this.traits.energy > this.traits.maxEnergy * 0.8) {
+                this.considerReproduction();
+            }
+        } else {
+            // Explore for resources
+            if (!this.explorationTarget || Math.random() < 0.02) {
+                // Set new exploration target
+                this.setNewExplorationTarget();
+            }
+
+            if (this.explorationTarget) {
+                this.moveTowards(this.explorationTarget.x, this.explorationTarget.y);
+
+                // Check if we reached the target
+                const targetDistance = Math.sqrt(
+                    (this.x - this.explorationTarget.x) ** 2 +
+                    (this.y - this.explorationTarget.y) ** 2
+                );
+
+                if (targetDistance < 20) {
+                    this.explorationTarget = null; // Find new target
+                }
+            }
+        }
+    }
+
+    // Nomad behavior - constantly moving in groups
+    applyNomadBehavior() {
+        // Nomads form loose, mobile groups that move together
+        if (this.colony && this.colony.members.length > 1) {
+            // Move with the group but maintain spread
+            const groupCenter = this.colony.structure.center;
+            const distanceFromGroup = Math.sqrt(
+                (this.x - groupCenter.x) ** 2 + (this.y - groupCenter.y) ** 2
+            );
+
+            if (distanceFromGroup > 100) {
+                // Too far from group - catch up
+                this.moveTowards(groupCenter.x, groupCenter.y);
+            } else if (distanceFromGroup < 30) {
+                // Too close - spread out
+                const angle = Math.atan2(this.y - groupCenter.y, this.x - groupCenter.x);
+                const targetX = groupCenter.x + Math.cos(angle) * 50;
+                const targetY = groupCenter.y + Math.sin(angle) * 50;
+                this.moveTowards(targetX, targetY);
+            } else {
+                // Good distance - continue group migration pattern
+                this.applyMigrationMovement();
+            }
+        } else {
+            // Solo nomad - seek other nomads or just keep moving
+            this.vx += (Math.random() - 0.5) * 0.2;
+            this.vy += (Math.random() - 0.5) * 0.2;
+
+            // Look for other nomads to join
+            this.seekNomadGroup();
+        }
+    }
+
+    // Helper methods for new behaviors
+    seekColonyFormation() {
+        // Look for nearby sedentary cells to form permanent structures
+        const nearbyNonCells = this.getAllCells().filter(cell =>
+            cell !== this &&
+            !cell.colony &&
+            cell.colonyRole === 'sedentary' &&
+            this.distanceTo(cell) < 80
+        );
+
+        if (nearbyNonCells.length >= 2) {
+            // Form new sedentary colony
+            const newColony = new Colony(this);
+            nearbyNonCells.slice(0, 3).forEach(cell => {
+                newColony.addMember(cell, this);
+            });
+            console.log(`🏘️ New sedentary colony formed with ${newColony.members.length} members`);
+        }
+    }
+
+    setNewExplorationTarget() {
+        // Set exploration target within range of home
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 50 + Math.random() * (this.maxDistanceFromHome - 50);
+
+        this.explorationTarget = {
+            x: this.homePosition.x + Math.cos(angle) * distance,
+            y: this.homePosition.y + Math.sin(angle) * distance
+        };
+
+        // Keep target within world bounds
+        this.explorationTarget.x = Math.max(20, Math.min(this.explorationTarget.x, 1180));
+        this.explorationTarget.y = Math.max(20, Math.min(this.explorationTarget.y, 580));
+    }
+
+    seekNomadGroup() {
+        const nearbyNomads = this.getAllCells().filter(cell =>
+            cell !== this &&
+            cell.colonyRole === 'nomad' &&
+            this.distanceTo(cell) < 120
+        );
+
+        if (nearbyNomads.length > 0) {
+            // Join existing nomad group or form new one
+            const closestNomad = nearbyNomads.reduce((closest, nomad) =>
+                this.distanceTo(nomad) < this.distanceTo(closest) ? nomad : closest
+            );
+
+            if (closestNomad.colony) {
+                // Join existing nomad colony
+                if (closestNomad.colony.members.length < 8) {
+                    closestNomad.colony.addMember(this, closestNomad);
+                }
+            } else if (nearbyNomads.length >= 1) {
+                // Form new nomad group
+                const nomadColony = new Colony(this);
+                nomadColony.addMember(closestNomad, this);
+                console.log(`🚗 New nomad group formed`);
+            }
+        }
+    }
+
+    applyMigrationMovement() {
+        // Nomad groups follow migration patterns
+        if (!this.migrationDirection) {
+            this.migrationDirection = Math.random() * Math.PI * 2;
+            this.migrationChangeTimer = 300 + Math.random() * 400; // Change direction every 5-10 seconds
+        }
+
+        this.migrationChangeTimer--;
+        if (this.migrationChangeTimer <= 0) {
+            // Change migration direction
+            this.migrationDirection += (Math.random() - 0.5) * Math.PI * 0.5;
+            this.migrationChangeTimer = 300 + Math.random() * 400;
+        }
+
+        const migrationSpeed = 0.15;
+        this.vx += Math.cos(this.migrationDirection) * migrationSpeed;
+        this.vy += Math.sin(this.migrationDirection) * migrationSpeed;
+    }
+
+    optimizeStructuralPosition() {
+        // Sedentary cells adjust their position to maintain colony structure
+        if (!this.colony || this.colony.members.length < 2) return;
+
+        const idealDistance = 35; // Ideal distance between bonded cells
+        let totalForceX = 0;
+        let totalForceY = 0;
+
+        this.colony.members.forEach(member => {
+            if (member === this) return;
+
+            const distance = this.distanceTo(member);
+            const angle = Math.atan2(member.y - this.y, member.x - this.x);
+
+            if (distance < idealDistance) {
+                // Too close - repel
+                const force = (idealDistance - distance) * 0.001;
+                totalForceX -= Math.cos(angle) * force;
+                totalForceY -= Math.sin(angle) * force;
+            } else if (distance > idealDistance * 1.5) {
+                // Too far - attract
+                const force = (distance - idealDistance * 1.5) * 0.0005;
+                totalForceX += Math.cos(angle) * force;
+                totalForceY += Math.sin(angle) * force;
+            }
+        });
+
+        this.vx += totalForceX;
+        this.vy += totalForceY;
+    }
+
+    // Helper method to get all cells (will be provided by simulation)
+    getAllCells() {
+        // This method will be overridden by the simulation to provide access to all cells
+        return this.allCells || [];
+    }
+
+    // Helper method to calculate distance to another cell
+    distanceTo(other) {
+        return Math.sqrt((this.x - other.x) ** 2 + (this.y - other.y) ** 2);
+    }
+
     applyWarriorBehavior() {
         // Warriors patrol colony perimeter and seek combat
         if (this.colony) {
@@ -1579,7 +2074,7 @@ class Cell {
             const distanceFromCenter = Math.sqrt(
                 (this.x - center.x) ** 2 + (this.y - center.y) ** 2
             );
-            
+
             // Patrol at medium distance from colony center
             const idealPatrolDistance = 80;
             if (distanceFromCenter < idealPatrolDistance * 0.8) {
@@ -1612,7 +2107,7 @@ class Cell {
             const distanceFromCenter = Math.sqrt(
                 (this.x - center.x) ** 2 + (this.y - center.y) ** 2
             );
-            
+
             if (distanceFromCenter > 60) {
                 // Return to work area near colony
                 this.moveTowards(center.x, center.y);
@@ -1635,7 +2130,7 @@ class Cell {
             const distanceFromCenter = Math.sqrt(
                 (this.x - center.x) ** 2 + (this.y - center.y) ** 2
             );
-            
+
             if (distanceFromCenter > 30) {
                 // Stay very close to colony center for safety
                 this.moveTowards(center.x, center.y);
@@ -1654,25 +2149,25 @@ class Cell {
     applyScoutBehavior() {
         // Scouts explore far from colony and report back
         const maxScoutDistance = 200;
-        
+
         if (!this.scoutTarget || Math.random() < 0.02) {
             // Set new distant exploration target
             const angle = Math.random() * Math.PI * 2;
             const distance = 80 + Math.random() * maxScoutDistance;
             const baseX = this.colony ? this.getColonyCenter().x : this.homePosition.x;
             const baseY = this.colony ? this.getColonyCenter().y : this.homePosition.y;
-            
+
             this.scoutTarget = {
                 x: baseX + Math.cos(angle) * distance,
                 y: baseY + Math.sin(angle) * distance
             };
         }
-        
+
         if (this.scoutTarget) {
             const distanceToTarget = Math.sqrt(
                 (this.x - this.scoutTarget.x) ** 2 + (this.y - this.scoutTarget.y) ** 2
             );
-            
+
             if (distanceToTarget > 25) {
                 this.moveTowards(this.scoutTarget.x, this.scoutTarget.y);
             } else {
@@ -1686,7 +2181,7 @@ class Cell {
         if (this.colony) {
             const center = this.getColonyCenter();
             const guardDistance = 50;
-            
+
             // Position at fixed guard distance from colony
             if (!this.guardPosition) {
                 const angle = Math.random() * Math.PI * 2;
@@ -1695,11 +2190,11 @@ class Cell {
                     y: center.y + Math.sin(angle) * guardDistance
                 };
             }
-            
+
             const distanceToPost = Math.sqrt(
                 (this.x - this.guardPosition.x) ** 2 + (this.y - this.guardPosition.y) ** 2
             );
-            
+
             if (distanceToPost > 15) {
                 this.moveTowards(this.guardPosition.x, this.guardPosition.y);
             } else {
@@ -1722,7 +2217,7 @@ class Cell {
             if (members.length > 0) {
                 const target = members[Math.floor(Math.random() * members.length)];
                 const distance = this.distanceTo(target);
-                
+
                 if (distance > 40) {
                     this.moveTowards(target.x, target.y);
                 } else if (distance < 25) {
@@ -1745,13 +2240,13 @@ class Cell {
         if (!this.colony || this.colony.members.length === 0) {
             return this.homePosition || { x: this.x, y: this.y };
         }
-        
+
         const center = { x: 0, y: 0 };
         this.colony.members.forEach(member => {
             center.x += member.x;
             center.y += member.y;
         });
-        
+
         center.x /= this.colony.members.length;
         center.y /= this.colony.members.length;
         return center;
@@ -1885,69 +2380,122 @@ class Cell {
         const healthRatio = this.traits.health / this.traits.maxHealth;
         const timeSinceLastReproduction = this.age - this.lastReproduction;
 
-        // Enhanced duplication system - much more aggressive reproduction
-        let reproductionCooldown = 400; // Reduced base cooldown (was 600)
-        let energyThreshold = 0.75;     // Lowered energy requirement (was 0.8)
+        // Dynamic reproduction system based on resource abundance
+        let reproductionCooldown = this.simulation?.settings?.mitosisCooldown || 400; // Use simulation settings
+        let energyThreshold = this.simulation?.settings?.energyThreshold || 0.6;      // Use simulation settings
 
-        // Well-fed cells reproduce much more frequently
-        if (energyRatio > 0.85) {
-            reproductionCooldown = 180; // Very fast reproduction (was 300)
-            energyThreshold = 0.8;      // Still reasonable energy requirement
+        // GROWTH ENHANCEMENT: Population pressure bonus for small populations
+        // Small populations should reproduce more aggressively to recover
+        if (this.globalPopulation && this.globalPopulation < 80) {
+            reproductionCooldown *= 0.5; // 50% faster reproduction for small populations
+            energyThreshold -= 0.15;      // Much easier reproduction when population is low
+        } else if (this.globalPopulation && this.globalPopulation < 150) {
+            reproductionCooldown *= 0.7; // 30% faster reproduction for growing populations  
+            energyThreshold -= 0.08;
         }
 
-        // Super well-fed cells reproduce extremely frequently (rapid duplication)
-        if (energyRatio > 0.95) {
-            reproductionCooldown = 100; // Ultra-fast reproduction (was 200)
-            energyThreshold = 0.85;     // Higher energy requirement for rapid reproduction
+        // GROWTH ENHANCEMENT: Abundance boost from ecosystem events
+        if (this.abundanceBoost > 0) {
+            reproductionCooldown *= 0.2; // 80% faster reproduction during abundance
+            energyThreshold -= 0.2;       // Much lower energy requirement
+            this.abundanceBoost--;        // Countdown the boost
         }
 
-        // Colony members reproduce more aggressively to grow the colony
+        // Food-dependent reproduction - cells that ate recently reproduce faster
+        const timeSinceFood = this.age - (this.lastFoodTime || 0);
+        if (timeSinceFood < 100) { // Recently ate (within 100 ticks)
+            reproductionCooldown *= 0.4; // 60% faster reproduction
+            energyThreshold -= 0.15;      // Lower energy requirement
+        } else if (timeSinceFood < 300) { // Somewhat recently fed
+            reproductionCooldown *= 0.7; // 30% faster reproduction
+            energyThreshold -= 0.08;
+        }
+
+        // Well-fed cells reproduce much more aggressively  
+        if (energyRatio > 0.9) {
+            reproductionCooldown *= 0.3; // Very fast reproduction when full energy
+            energyThreshold = 0.85;       // High energy still required for quality offspring
+        } else if (energyRatio > 0.8) {
+            reproductionCooldown *= 0.5; // Fast reproduction
+            energyThreshold = 0.75;
+        }
+
+        // Predation bonus - cells that consumed others can reproduce immediately
+        if (this.justAte === 'predation') {
+            reproductionCooldown = 50;    // Almost immediate reproduction
+            energyThreshold = 0.6;        // Lower threshold after successful hunt
+            this.justAte = null;          // Reset flag
+        }
+
+        // Colony effects on reproduction
         if (this.colony && this.colony.members.length < 15) {
-            reproductionCooldown *= 0.6; // 40% faster reproduction in colonies
-            energyThreshold -= 0.05;      // Lower energy threshold for colony growth
+            reproductionCooldown *= 0.8; // Faster reproduction to grow colony
+            energyThreshold -= 0.05;      // Easier reproduction in colonies
         }
 
-        // Sedentary cells focus on reproduction
+        // Sedentary cells focus heavily on reproduction
         if (this.colonyRole === 'sedentary') {
-            reproductionCooldown *= 0.4; // 60% faster reproduction for sedentary cells
+            reproductionCooldown *= 0.5; // 50% faster reproduction
             energyThreshold -= 0.1;       // Much lower energy threshold
         }
 
-        // Healthy cells reproduce more easily
+        // Environmental pressure affects reproduction
+        if (this.environmentalStress > 0.5) {
+            reproductionCooldown *= 1.5; // Slower reproduction under stress
+            energyThreshold += 0.1;       // Higher energy requirement
+        } else if (this.environmentalStress < 0.2) {
+            reproductionCooldown *= 0.8; // Faster reproduction in good conditions
+            energyThreshold -= 0.05;
+        }
+
+        // Life stage affects reproduction capability
+        switch (this.traits.lifestage) {
+            case 'adult':
+                reproductionCooldown *= 0.7; // Adults reproduce faster
+                break;
+            case 'elder':
+                reproductionCooldown *= 1.4; // Elders slower but can still reproduce
+                energyThreshold += 0.05;
+                break;
+            case 'juvenile':
+                reproductionCooldown *= 1.2; // Juveniles reproduce slower
+                energyThreshold += 0.1;       // Need more energy
+                break;
+        }
+
+        // Health affects reproduction quality
         if (healthRatio > 0.9) {
-            reproductionCooldown *= 0.7; // 30% faster reproduction (was 0.8)
-        }
-
-        // Adult cells reproduce better than juveniles
-        if (this.traits.lifestage === 'adult') {
-            reproductionCooldown *= 0.6; // Adults reproduce 40% faster (was 30%)
-        }
-
-        // Elder cells can still reproduce but slower
-        if (this.traits.lifestage === 'elder') {
-            reproductionCooldown *= 1.3; // Elders reproduce 30% slower
-        }
-        if (this.traits.lifestage === 'adult') {
-            reproductionCooldown *= 0.7; // Adults reproduce 30% faster
+            reproductionCooldown *= 0.8; // Healthy cells reproduce faster
+        } else if (healthRatio < 0.6) {
+            reproductionCooldown *= 1.3; // Injured cells reproduce slower
+            energyThreshold += 0.1;
         }
 
         // Check if ready to reproduce
         if (timeSinceLastReproduction > reproductionCooldown &&
             energyRatio > energyThreshold &&
-            healthRatio > 0.5) {
+            healthRatio > 0.4) { // Lower health threshold for reproduction
 
             this.reproduced = true;
             this.lastReproduction = this.age;
 
-            // Energy cost scales with how well-fed the cell is
-            const energyCost = energyRatio > 0.95 ? 0.7 : 0.6; // More energy cost for rapid reproduction
-            this.traits.energy *= energyCost;
+            // Track reproductive success for fitness
+            this.reproductiveSuccess = (this.reproductiveSuccess || 0) + 1;
+
+            // Energy cost varies with reproduction speed and quality
+            let energyCost = 0.6; // Base cost
+            if (energyRatio > 0.9) energyCost = 0.75; // High energy = high quality offspring = higher cost
+            if (this.colonyRole === 'sedentary') energyCost *= 0.8; // Sedentary cells more efficient
+
+            this.traits.energy *= (1 - energyCost);
 
             // Role-based reproduction behavior
             this.handleRoleBasedReproduction();
 
             // Visual feedback for reproduction
             this.addReproductionEffect();
+
+            console.log(`🧬 ${this.name} reproduced! (Energy: ${(energyRatio * 100).toFixed(1)}%, Food Timer: ${timeSinceFood})`);
         }
     }
 
@@ -2032,8 +2580,30 @@ class Cell {
     eat(food) {
         if (this.canEat(food) && !food.consumed) {
             food.consumed = true;
-            this.traits.energy += food.energyValue;
+            const energyGained = food.energyValue;
+            this.traits.energy += energyGained;
             this.traits.energy = Math.min(this.traits.energy, this.traits.maxEnergy);
+
+            // GROWTH MECHANIC: Process growth from nutrition
+            const nutritionValue = energyGained / 3; // More nutrition from food (was /10)
+            const didGrow = this.grow(nutritionValue);
+
+            if (didGrow) {
+                console.log(`🍽️ ${this.name} ate and grew! Size: ${this.traits.size.toFixed(2)}`);
+            }
+
+            // Track food consumption for reproduction system
+            this.lastFoodTime = this.age;
+            this.justAte = 'food';
+
+            // Well-fed cells have chance for immediate reproduction
+            if (this.traits.energy > this.traits.maxEnergy * 0.9) {
+                // Small chance for bonus reproduction from being well-fed
+                if (Math.random() < 0.15) { // 15% chance
+                    this.justAte = 'abundance'; // Special flag for abundance reproduction
+                }
+            }
+
             return true;
         }
         return false;
@@ -2048,6 +2618,10 @@ class Cell {
 
     fight(other) {
         if (!this.collidesWith(other)) return false;
+
+        // Store initial health to determine winner
+        const initialHealthSelf = this.traits.health;
+        const initialHealthOther = other.traits.health;
 
         // Calculate damage based on size and defense types
         let damage = this.traits.size * 0.2;
@@ -2080,9 +2654,92 @@ class Cell {
         other.traits.health -= damage;
         this.traits.health -= otherDamage;
 
+        // Track damage time for fragmentation system
+        this.lastDamageTime = this.age;
+        other.lastDamageTime = other.age;
+
+        // Track combat results for fitness calculation
+        const selfDamageDealt = damage;
+        const otherDamageDealt = otherDamage;
+
+        if (selfDamageDealt > otherDamageDealt) {
+            this.combatWins++;
+            other.combatLosses++;
+        } else if (otherDamageDealt > selfDamageDealt) {
+            other.combatWins++;
+            this.combatLosses++;
+        }
+
         // Energy cost for fighting
         this.traits.energy -= 2;
         other.traits.energy -= 2;
+
+        return true;
+    }
+
+    // Predation - stronger cells can consume weaker ones
+    canPredate(prey) {
+        // Basic size requirement - predator must be significantly larger
+        if (this.traits.size < prey.traits.size * 1.3) return false;
+
+        // Health requirement - predator must be healthier
+        if (this.traits.health < prey.traits.health * 0.8) return false;
+
+        // Some defense types make cells unpredatable  
+        if (prey.traits.defenseType === 'explosive') return false;
+        if (prey.traits.defenseType === 'poison' && this.traits.toxinResistance < 0.7) return false;
+
+        // Can't eat cells from same colony (usually)
+        if (this.colony && prey.colony === this.colony) return false;
+
+        // Predatory abilities increase predation chance
+        if (this.traits.specialAbility === 'parasite') return true;
+        if (this.traits.specialAbility === 'pack_hunter' && this.allies.length > 0) return true;
+
+        return true;
+    }
+
+    predateOn(prey) {
+        if (!this.canPredate(prey) || !this.collidesWith(prey)) return false;
+
+        console.log(`🦈 ${this.name} consumed ${prey.name}!`);
+
+        // Predator gains significant energy and health from consumption
+        const energyGain = Math.min(prey.traits.maxEnergy * 0.8, this.traits.maxEnergy - this.traits.energy);
+        const healthGain = Math.min(prey.traits.maxHealth * 0.3, this.traits.maxHealth - this.traits.health);
+
+        this.traits.energy += energyGain;
+        this.traits.health += healthGain;
+
+        // GROWTH MECHANIC: Gain significant growth from consuming another cell
+        const biomassValue = prey.mass * 2; // Much more nutrition than regular food
+        const didGrow = this.grow(biomassValue);
+        if (didGrow) {
+            console.log(`💪 ${this.name} grew from predation!`);
+        }
+
+        // Track predation success
+        this.predationSuccess++;
+        this.lastFoodTime = this.age;
+        this.justAte = 'predation';
+
+        // Mark prey as consumed (will be removed by simulation)
+        prey.traits.health = 0;
+
+        // Add predation particle effects
+        for (let i = 0; i < 5; i++) {
+            this.particleEffects.push({
+                x: this.x + (Math.random() - 0.5) * this.radius * 2,
+                y: this.y + (Math.random() - 0.5) * this.radius * 2,
+                vx: (Math.random() - 0.5) * 3,
+                vy: (Math.random() - 0.5) * 3,
+                size: 2 + Math.random() * 3,
+                life: 40,
+                maxLife: 40,
+                color: '#ff4444',
+                type: 'predation'
+            });
+        }
 
         return true;
     }
@@ -2094,6 +2751,12 @@ class Cell {
 
         // Draw special auras and fields first (background layer)
         this.renderAuras(ctx);
+
+        // Draw growth ring if active
+        this.renderGrowthRing(ctx);
+
+        // Draw fragmentation shockwave if active
+        this.renderFragmentationShockwave(ctx);
 
         // Draw particle effects
         this.renderParticleEffects(ctx);
@@ -2714,7 +3377,8 @@ class Cell {
         ctx.textBaseline = 'middle';
 
         // Measure text width for background
-        const textWidth = ctx.measureText(this.name).width;
+        const displayName = `${this.name} (${this.traits.size.toFixed(1)})`;
+        const textWidth = ctx.measureText(displayName).width;
         const padding = 4;
 
         // Draw semi-transparent background
@@ -2736,9 +3400,9 @@ class Cell {
             16
         );
 
-        // Draw the name text
+        // Draw the name text with size info
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(this.name, this.x, nameY);
+        ctx.fillText(displayName, this.x, nameY);
 
         // Add generation indicator
         if (this.generation > 1) {
@@ -2746,6 +3410,60 @@ class Cell {
             ctx.fillStyle = '#00ff88';
             ctx.fillText(`Gen ${this.generation}`, this.x, nameY + 15);
         }
+    }
+
+    renderGrowthRing(ctx) {
+        if (this.growthRingTimer <= 0) return;
+
+        // Animate the growth ring
+        const progress = 1 - (this.growthRingTimer / 60); // 0 to 1
+        const alpha = Math.max(0, 1 - progress * 2); // Fade out in second half
+        const ringRadius = this.radius + (progress * 20); // Expand outward
+
+        ctx.strokeStyle = `rgba(0, 255, 102, ${alpha * 0.8})`;
+        ctx.lineWidth = 3 - (progress * 2); // Get thinner as it expands
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, ringRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner growth pulse
+        if (this.growthRingTimer > 30) {
+            ctx.strokeStyle = `rgba(0, 255, 102, ${alpha * 0.4})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius + 2, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+    }
+
+    renderFragmentationShockwave(ctx) {
+        if (this.shockwaveTimer <= 0) return;
+
+        // Animate the fragmentation shockwave
+        const progress = 1 - (this.shockwaveTimer / 40); // 0 to 1
+        const alpha = Math.max(0, 1 - progress * 1.5); // Fade out faster than growth ring
+        const shockRadius = this.shockwaveSize + (progress * 60); // Expand outward rapidly
+
+        // Outer shockwave
+        ctx.strokeStyle = `rgba(255, 102, 0, ${alpha * 0.9})`;
+        ctx.lineWidth = 4 - (progress * 3); // Get thinner as it expands
+        ctx.setLineDash([8, 4]); // Dashed line for explosive effect
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, shockRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Inner fragmentation ring
+        if (this.shockwaveTimer > 20) {
+            ctx.strokeStyle = `rgba(255, 180, 0, ${alpha * 0.6})`;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 2]);
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, shockRadius * 0.7, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        ctx.setLineDash([]); // Reset dash pattern
     }
 
     renderHealthBar(ctx) {
@@ -2783,7 +3501,7 @@ class Cell {
     mutate(mutationRate) {
         const newTraits = { ...this.traits };
         newTraits.generation = this.generation + 1;
-        
+
         // Create DNA for offspring through inheritance and mutation
         const newDNA = this.inheritAndMutateDNA(mutationRate);
         const mutations = [];
@@ -2881,7 +3599,7 @@ class Cell {
 
     inheritAndMutateDNA(mutationRate) {
         const newDNA = { ...this.dna };
-        
+
         // Each gene has a chance to mutate
         Object.keys(newDNA).forEach(gene => {
             if (Math.random() < mutationRate * 0.5) { // 50% of base mutation rate for DNA
@@ -2890,7 +3608,7 @@ class Cell {
                 newDNA[gene] = Math.max(0, Math.min(255, newDNA[gene] + change));
             }
         });
-        
+
         return newDNA;
     }
 
@@ -2902,23 +3620,23 @@ class Cell {
     applyEvolutionaryPressure(newTraits, mutations) {
         // Simulate natural selection by adjusting traits based on survival advantages
         const environment = this.getCurrentEnvironmentalPressure();
-        
+
         mutations.forEach(mutation => {
-            switch(mutation.trait) {
+            switch (mutation.trait) {
                 case 'size':
                     // Smaller cells use less energy but are more vulnerable
                     if (environment.energyScarcity && mutation.newValue < mutation.oldValue) {
                         newTraits.fitnessBonus = (newTraits.fitnessBonus || 0) + 0.1;
                     }
                     break;
-                    
+
                 case 'speed':
                     // Faster cells escape predators but use more energy
                     if (environment.predatorPressure && mutation.newValue > mutation.oldValue) {
                         newTraits.fitnessBonus = (newTraits.fitnessBonus || 0) + 0.15;
                     }
                     break;
-                    
+
                 case 'toxinResistance':
                     // Higher toxin resistance helps in polluted environments
                     if (environment.toxicity && mutation.newValue > mutation.oldValue) {
@@ -2965,8 +3683,12 @@ class Virus extends Cell {
         const virusTraits = {
             health: 20 + Math.random() * 20, // 20-40 (much lower than cells)
             size: 3 + Math.random() * 4, // 3-7 (smaller than cells)
+            maxSize: 15 + Math.random() * 10, // Can grow larger than starting size
             speed: 2 + Math.random() * 2, // 2-4 (faster than cells)
             energy: 30 + Math.random() * 20, // 30-50
+            growthRate: 1.2 + Math.random() * 0.6, // 1.2-1.8 (faster growth)
+            baseLifespan: 200000, // Base lifespan increased 100x (was 2000)
+            lifespanMultiplier: 80000, // Size affects lifespan less than cells (100x increase)
             defenseType: 'viral',
             shape: 'star', // Distinctive shape
             specialAbility: 'infection',
@@ -3014,46 +3736,105 @@ class Virus extends Cell {
         // Pulse visual effect
         this.pulsePhase += 0.2;
 
-        // Viruses die after infecting enough cells or getting too old
-        if (this.infectionsCount >= this.maxInfections || this.age > 2000) {
+        // ENHANCED VIRUS LIFESPAN: Size-dependent longevity like cells
+        const maxLifespan = this.traits.baseLifespan + (this.traits.size * this.traits.lifespanMultiplier);
+
+        // Viruses die after infecting enough cells, getting too old, or reaching max lifespan
+        if (this.infectionsCount >= this.maxInfections ||
+            this.age > maxLifespan ||
+            this.traits.health <= 0) {
             this.traits.health = 0; // Kill the virus
+        }
+
+        // Virus-specific aging effects (less severe than cells)
+        const ageRatio = this.age / maxLifespan;
+        if (ageRatio > 0.7) { // Start aging at 70% of lifespan
+            const agingFactor = 1 + ((ageRatio - 0.7) / 0.3) * 0.1; // 10% max aging penalty
+            this.traits.speed *= Math.max(0.7, 1 / agingFactor); // Slower movement
+
+            // Gradual health decay for old viruses
+            if (Math.random() < (ageRatio - 0.7) * 0.01) { // Very slow health decay
+                this.traits.health -= 0.5;
+            }
         }
 
         // Virus-specific behavior
         this.seekHostCells(cells);
+
+        // VIRUS REPRODUCTION: Large viruses can split to create offspring
+        if (this.traits.size > this.traits.maxSize * 0.7 && // Must be at least 70% of max size
+            this.traits.energy > this.traits.maxEnergy * 0.8 && // High energy
+            this.age > 300 && // Must be mature (300 ticks)
+            Math.random() < 0.002) { // 0.2% chance per tick
+
+            const reproduced = this.considerViralReproduction();
+
+            // GROWTH BONUS: Successful reproduction triggers growth
+            if (reproduced) {
+                const mitosisBonusNutrition = this.traits.size * 0.5; // Bonus nutrition from successful division
+                this.grow(mitosisBonusNutrition);
+            }
+        }
     }
 
     seekHostCells(cells) {
         if (this.infectionCooldown > 0) return;
 
-        // Look for healthy cells to infect
-        const potentialHosts = cells.filter(cell =>
-            !cell.isVirus &&
+        // ENHANCED VIRUS BEHAVIOR: Seek both infection targets and predation targets
+        const potentialHosts = cells.filter(cell => !cell.isVirus);
+
+        // Separate into infection and predation targets
+        const infectionTargets = potentialHosts.filter(cell =>
             !cell.isInfected &&
             this.distanceTo(cell) < this.infectionRadius &&
-            cell.traits.health > cell.traits.maxHealth * 0.3 // Don't infect dying cells
+            cell.traits.health > cell.traits.maxHealth * 0.3
         );
 
-        if (potentialHosts.length > 0) {
-            // Find closest healthy cell
-            let closestHost = null;
-            let closestDistance = Infinity;
+        // VIRUS PREDATION: Target weak/small cells for consumption
+        const predationTargets = potentialHosts.filter(cell =>
+            this.distanceTo(cell) < this.infectionRadius * 1.5 &&
+            (cell.traits.health < cell.traits.maxHealth * 0.4 || // Weak cells
+                cell.traits.size < this.traits.size * 1.2 || // Smaller cells
+                cell.isInfected) // Already infected cells
+        );
 
-            for (const host of potentialHosts) {
-                const distance = this.distanceTo(host);
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestHost = host;
+        let targetCell = null;
+        let targetDistance = Infinity;
+        let targetType = null;
+
+        // PRIORITY SYSTEM: Predation for growth, then infection
+        // Check for predation opportunities first (for growth)
+        if (predationTargets.length > 0) {
+            for (const target of predationTargets) {
+                const distance = this.distanceTo(target);
+                if (distance < targetDistance) {
+                    targetDistance = distance;
+                    targetCell = target;
+                    targetType = 'predation';
                 }
             }
+        }
 
-            if (closestHost) {
-                this.moveToward(closestHost.x, closestHost.y);
-
-                // Try to infect if close enough
-                if (closestDistance < this.radius + closestHost.radius + 5) {
-                    this.infectCell(closestHost);
+        // If no good predation targets, look for infection targets
+        if (!targetCell && infectionTargets.length > 0) {
+            for (const target of infectionTargets) {
+                const distance = this.distanceTo(target);
+                if (distance < targetDistance) {
+                    targetDistance = distance;
+                    targetCell = target;
+                    targetType = 'infection';
                 }
+            }
+        }
+
+        if (targetCell) {
+            this.moveTowards(targetCell.x, targetCell.y);
+
+            // Different behaviors based on target type
+            if (targetType === 'predation' && targetDistance < this.radius + targetCell.radius + 3) {
+                this.predateOnCell(targetCell);
+            } else if (targetType === 'infection' && targetDistance < this.radius + targetCell.radius + 5) {
+                this.infectCell(targetCell);
             }
         }
     }
@@ -3088,9 +3869,174 @@ class Virus extends Cell {
         return true;
     }
 
+    // VIRUS PREDATION: Enhanced ability to consume cells for growth
+    predateOnCell(cell) {
+        if (cell.isVirus || this.infectionCooldown > 0) return false;
+
+        // Calculate predation success chance based on relative size and health
+        const sizeAdvantage = this.traits.size / cell.traits.size;
+        const healthAdvantage = this.traits.health / cell.traits.health;
+        let successChance = 0.3; // Base chance
+
+        // Bonuses for virus predation
+        if (cell.isInfected) successChance += 0.4; // Much easier to consume infected cells
+        if (cell.traits.health < cell.traits.maxHealth * 0.3) successChance += 0.3; // Weak cells
+        if (sizeAdvantage > 1.0) successChance += Math.min(0.3, (sizeAdvantage - 1.0) * 0.5);
+        if (healthAdvantage > 1.5) successChance += 0.2;
+
+        // Cell defenses against viral predation
+        if (cell.traits.defenseType === 'armor') successChance *= 0.7;
+        if (cell.traits.defenseType === 'poison') successChance *= 0.6; // Poison hurts viruses
+        if (cell.traits.toxinResistance > 0.5) successChance *= 0.8;
+
+        // Attempt predation
+        if (Math.random() < successChance) {
+            // SUCCESSFUL VIRAL PREDATION
+            const biomass = cell.traits.size * 2; // Viruses extract more biomass
+            const nutritionValue = biomass * 1.5; // Higher nutrition conversion
+
+            // VIRUS GROWTH from predation
+            const oldSize = this.traits.size;
+            this.grow(nutritionValue);
+            const sizeGrowth = this.traits.size - oldSize;
+
+            // Energy and health benefits
+            this.traits.energy += nutritionValue * 2; // Double energy gain
+            this.traits.energy = Math.min(this.traits.energy, this.traits.maxEnergy);
+            this.traits.health += nutritionValue * 0.8; // Health restoration
+            this.traits.health = Math.min(this.traits.health, this.traits.maxHealth);
+
+            // Enhanced virus properties from successful predation
+            if (sizeGrowth > 0) {
+                this.infectionRadius += sizeGrowth * 2; // Larger infection radius
+                this.infectionStrength += sizeGrowth * 0.1; // Stronger infections
+                this.maxInfections += Math.floor(sizeGrowth); // Can infect more cells
+            }
+
+            // Visual effects for successful predation
+            this.addParticleEffect('predation', cell.x, cell.y);
+
+            // Mark cell as consumed
+            cell.traits.health = 0; // Kill the consumed cell
+            this.infectionCooldown = 60; // Short cooldown after predation
+
+            console.log(`🦠 ${this.name} consumed ${cell.name}! Grew by ${sizeGrowth.toFixed(2)} (Size: ${this.traits.size.toFixed(1)})`);
+            return true;
+        } else {
+            // Failed predation - virus takes damage
+            this.traits.health -= cell.traits.size * 0.5;
+            this.addParticleEffect('resist', cell.x, cell.y);
+            this.infectionCooldown = 90; // Longer cooldown after failed predation
+            return false;
+        }
+    }
+
+    // VIRUS GROWTH: Enhanced growth mechanics for viral expansion - EXPONENTIAL
+    grow(nutritionValue) {
+        if (nutritionValue <= 0 || this.traits.size >= this.traits.maxSize) return false;
+
+        // Viruses have accelerated exponential growth
+        const viralGrowthMultiplier = 2.0; // Double growth speed compared to cells
+        const adjustedNutrition = nutritionValue * viralGrowthMultiplier;
+
+        // EXPONENTIAL GROWTH for viruses (even more aggressive than cells)
+        const exponentialFactor = Math.pow(1.15, this.traits.size / 8); // Higher exponential scaling
+        const growthPoints = adjustedNutrition * this.traits.growthRate * exponentialFactor;
+        const sizeIncrease = growthPoints * 0.4; // Larger growth steps for viruses
+
+        const oldSize = this.traits.size;
+        this.traits.size = Math.min(this.traits.size + sizeIncrease, this.traits.maxSize);
+        const actualGrowth = this.traits.size - oldSize;
+
+        if (actualGrowth > 0) {
+            // Update radius based on size
+            this.radius = Math.max(3, this.traits.size * 1.2); // Minimum radius for viruses
+
+            // Exponential stat scaling for viruses
+            const growthFactor = 1 + (actualGrowth / oldSize);
+            const exponentialStatBoost = Math.pow(1.3, actualGrowth); // Strong exponential scaling
+
+            // Enhanced exponential scaling for viruses
+            this.traits.maxHealth += actualGrowth * 15 * exponentialStatBoost; // Exponential health growth
+            this.traits.maxEnergy += actualGrowth * 12 * exponentialStatBoost; // Exponential energy growth
+            this.traits.speed *= Math.pow(growthFactor, 0.4); // Speed increases more
+
+            // Viral-specific exponential enhancements
+            this.infectionRadius += actualGrowth * 3 * exponentialStatBoost; // Exponential infection range
+            this.infectionStrength += actualGrowth * 0.1 * exponentialStatBoost; // More potent infections
+
+            // Current stats adjustment with exponential boost
+            this.traits.health += actualGrowth * 10 * exponentialStatBoost;
+            this.traits.energy += actualGrowth * 8 * exponentialStatBoost;
+
+            // Cap stats at maximum
+            this.traits.health = Math.min(this.traits.health, this.traits.maxHealth);
+            this.traits.energy = Math.min(this.traits.energy, this.traits.maxEnergy);
+
+            // Visual effect for growth
+            this.addParticleEffect('growth', this.x, this.y);
+
+            console.log(`🦠 ${this.name} grew EXPONENTIALLY to size ${this.traits.size.toFixed(2)} (+${actualGrowth.toFixed(3)})`);
+            return true;
+        }
+        return false;
+    }
+
+    // VIRAL REPRODUCTION: Enhanced reproduction for successful viral strains
+    considerViralReproduction() {
+        // Viruses reproduce by splitting when they've grown large and successful
+        const reproductionCost = 0.7; // High energy cost
+
+        // Successful predation enables reproduction
+        if (this.infectionsCount >= 2 || this.traits.size > this.traits.maxSize * 0.8) {
+            // Split the virus
+            this.traits.energy *= (1 - reproductionCost);
+            this.traits.size *= 0.8; // Reduce size after reproduction
+            this.radius = Math.max(3, this.traits.size * 1.2);
+
+            // Reset some viral properties after reproduction
+            this.infectionsCount = Math.floor(this.infectionsCount / 2);
+            this.infectionRadius *= 0.9; // Slightly reduced infection range
+
+            // Mark for reproduction (handled by simulation)
+            this.reproduced = true;
+            this.lastReproduction = this.age;
+
+            // Visual effects
+            this.addParticleEffect('reproduction', this.x, this.y);
+
+            console.log(`🦠 ${this.name} reproduced via viral division! (Size: ${this.traits.size.toFixed(1)})`);
+            return true;
+        }
+        return false;
+    }
+
     addParticleEffect(type, x, y) {
-        const color = type === 'infection' ? '#ff0066' : '#88ff88';
-        const particleCount = type === 'infection' ? 12 : 6;
+        let color, particleCount;
+
+        switch (type) {
+            case 'infection':
+                color = '#ff0066';
+                particleCount = 12;
+                break;
+            case 'predation':
+                color = '#ff3300';
+                particleCount = 15;
+                break;
+            case 'growth':
+                color = '#00ff88';
+                particleCount = 8;
+                break;
+            case 'reproduction':
+                color = '#ffff00';
+                particleCount = 20;
+                break;
+            case 'resist':
+            default:
+                color = '#88ff88';
+                particleCount = 6;
+                break;
+        }
 
         for (let i = 0; i < particleCount; i++) {
             const angle = (i / particleCount) * Math.PI * 2;

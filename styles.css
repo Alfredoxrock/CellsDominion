@@ -14,9 +14,22 @@ body {
 }
 
 #gameContainer {
-    max-width: 1400px;
+    max-width: 1600px;
+    /* Increased for bigger canvas */
     margin: 0 auto;
     padding: 20px;
+}
+
+/* God Mode Panel styles - moved above canvas */
+#godModePanel {
+    background: rgba(255, 215, 0, 0.1);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 20px;
+    /* Space above canvas */
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.2);
 }
 
 header {
@@ -112,7 +125,8 @@ header p {
     margin-bottom: 20px;
     position: relative;
     align-items: flex-start;
-    max-width: 1200px;
+    max-width: 1400px;
+    /* Increased for bigger canvas */
     margin: 0 auto 20px auto;
 }
 
@@ -126,8 +140,10 @@ header p {
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3),
         inset 0 0 100px rgba(138, 43, 226, 0.05);
     cursor: grab;
-    width: 800px;
-    height: 600px;
+    width: 1200px;
+    /* Increased from 800px */
+    height: 800px;
+    /* Increased from 600px */
     position: relative;
     overflow: hidden;
 }
@@ -602,7 +618,28 @@ header p {
     background: linear-gradient(90deg, #ba68c8, #e1bee7);
 }
 
+/* Stats Container - positioned below canvas */
+#statsContainer {
+    display: flex;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+    align-items: flex-start;
+}
+
 #chartContainer {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    flex: 0 0 450px;
+    /* Fixed width for chart */
+}
+
+#infoPanel {
+    flex: 1;
+    /* Take remaining space */
     background: rgba(255, 255, 255, 0.1);
     border-radius: 15px;
     padding: 20px;
@@ -675,24 +712,21 @@ header p {
 
 /* God Mode Panel */
 #godModePanel {
-    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 140, 0, 0.1));
+    background: rgba(255, 215, 0, 0.1);
     border-radius: 15px;
-    padding: 20px;
+    padding: 15px;
     margin-bottom: 20px;
-    border: 2px solid rgba(255, 215, 0, 0.3);
+    /* Space above canvas */
     backdrop-filter: blur(10px);
-    box-shadow: 0 8px 32px rgba(255, 215, 0, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    box-shadow: 0 5px 20px rgba(255, 215, 0, 0.2);
 }
 
-#godModePanel h3 {
-    color: #ffd700;
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
-    margin-bottom: 15px;
-}
-
+/* God controls layout - make it more compact since it's above canvas */
 .god-controls {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(5, 1fr);
+    /* 5 columns for more compact layout */
     gap: 15px;
 }
 

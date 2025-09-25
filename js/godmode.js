@@ -80,7 +80,7 @@ class GodMode {
     spawnFood() {
         const position = this.clickPosition || this.getRandomPosition();
         console.log('🍎 God spawned food!');
-        
+
         // Spawn multiple food particles
         for (let i = 0; i < 10; i++) {
             this.simulation.foodManager.spawnAt(
@@ -97,7 +97,7 @@ class GodMode {
         this.simulation.environment.resourceAvailability = 0.1;
         this.simulation.settings.foodSpawnRate = 0.1;
         this.simulation.foodManager.setSpawnRate(0.1);
-        
+
         // Remove existing food
         const food = this.simulation.foodManager.getFood();
         food.forEach(f => f.consumed = true);
@@ -108,7 +108,7 @@ class GodMode {
         this.simulation.environment.resourceAvailability = 2.0;
         this.simulation.settings.foodSpawnRate = 10.0;
         this.simulation.foodManager.setSpawnRate(10.0);
-        
+
         // Spawn lots of food everywhere
         for (let i = 0; i < 100; i++) {
             this.simulation.foodManager.spawnAt(
@@ -123,7 +123,7 @@ class GodMode {
     triggerMeteor() {
         const position = this.clickPosition || this.getRandomPosition();
         console.log('☄️ God triggered a meteor strike!');
-        
+
         this.simulation.environment.triggerRandomDisaster = () => {
             return {
                 type: 'meteor',
@@ -135,7 +135,7 @@ class GodMode {
                 age: 0
             };
         };
-        
+
         const disaster = this.simulation.environment.triggerRandomDisaster();
         this.simulation.environment.disasters.push(disaster);
         this.clickPosition = null;
@@ -143,7 +143,7 @@ class GodMode {
 
     triggerPlague() {
         console.log('🦠 God triggered a plague outbreak!');
-        
+
         // Infect random cells
         const cellsToInfect = Math.min(10, Math.floor(this.simulation.cells.length * 0.3));
         for (let i = 0; i < cellsToInfect; i++) {
@@ -159,7 +159,7 @@ class GodMode {
     triggerToxicSpill() {
         const position = this.clickPosition || this.getRandomPosition();
         console.log('☢️ God triggered a toxic spill!');
-        
+
         // Add toxic hazard zone
         this.simulation.environment.hazardZones.push({
             x: position.x,
@@ -171,7 +171,7 @@ class GodMode {
             temporary: true,
             lifetime: 1000
         });
-        
+
         this.simulation.environment.toxicity = Math.min(1.0, this.simulation.environment.toxicity + 0.3);
         this.clickPosition = null;
     }
@@ -179,7 +179,7 @@ class GodMode {
     triggerRadiation() {
         console.log('☢️ God triggered a radiation storm!');
         this.simulation.environment.radiation = Math.min(1.0, this.simulation.environment.radiation + 0.5);
-        
+
         // Cause random mutations in all cells
         this.simulation.cells.forEach(cell => {
             if (Math.random() < 0.3) {
@@ -193,7 +193,7 @@ class GodMode {
         console.log('🔥 God triggered a heatwave!');
         this.simulation.environment.temperature = 0.9;
         this.simulation.environment.humidity = 0.2;
-        
+
         // Add heat damage to cells
         this.simulation.cells.forEach(cell => {
             if (cell.traits.temperatureTolerance < 0.7) {
@@ -208,7 +208,7 @@ class GodMode {
         this.simulation.environment.temperature = 0.1;
         this.simulation.environment.resourceAvailability = 0.3;
         this.simulation.settings.foodSpawnRate *= 0.2;
-        
+
         // Slow down all cells
         this.simulation.cells.forEach(cell => {
             cell.traits.speed *= 0.6;
@@ -232,15 +232,15 @@ class GodMode {
     // Evolution controls
     massExtinction() {
         console.log('💀 God triggered mass extinction!');
-        
+
         const survivorCount = Math.max(5, Math.floor(this.simulation.cells.length * 0.1));
         const survivors = this.simulation.cells
             .sort((a, b) => (b.fitnessScore || 0) - (a.fitnessScore || 0))
             .slice(0, survivorCount);
-        
+
         // Remove all but the fittest
         this.simulation.cells = survivors;
-        
+
         // Add environmental damage
         this.simulation.environment.toxicity = 0.8;
         this.simulation.environment.radiation = 0.6;
@@ -248,11 +248,11 @@ class GodMode {
 
     mutationBoost() {
         console.log('🧬 God boosted mutations!');
-        
+
         // Temporarily increase mutation rate
         const oldRate = this.simulation.settings.mutationRate;
         this.simulation.settings.mutationRate = 0.8;
-        
+
         // Trigger mutations in all cells
         this.simulation.cells.forEach(cell => {
             if (Math.random() < 0.5) {
@@ -261,7 +261,7 @@ class GodMode {
                 cell.dna = mutatedTraits.dna;
             }
         });
-        
+
         // Restore normal rate after 5 seconds
         setTimeout(() => {
             this.simulation.settings.mutationRate = oldRate;
@@ -271,7 +271,7 @@ class GodMode {
     createSuperCell() {
         const position = this.clickPosition || this.getRandomPosition();
         console.log('💫 God created a super cell!');
-        
+
         // Create cell with amazing traits
         const superTraits = {
             size: 18,
@@ -291,7 +291,7 @@ class GodMode {
             generation: this.simulation.generation + 10,
             fitnessBonus: 5.0
         };
-        
+
         const superCell = new Cell(position.x, position.y, superTraits);
         superCell.name = "🌟 Divine Creation";
         superCell.colonyRole = 'builder';

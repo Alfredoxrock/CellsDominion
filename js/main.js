@@ -119,41 +119,65 @@ class CellDefenseSimulator {
             }
         });
 
-        // Settings sliders
-        document.getElementById('cellCount').addEventListener('input', (e) => {
-            this.simulation.settings.initialCells = parseInt(e.target.value);
-        });
-
-        document.getElementById('foodSpawnRate').addEventListener('input', (e) => {
-            this.simulation.settings.foodSpawnRate = parseFloat(e.target.value);
-        });
-
-        document.getElementById('mutationRate').addEventListener('input', (e) => {
-            this.simulation.settings.mutationRate = parseFloat(e.target.value);
-        });
-
-        document.getElementById('simSpeed').addEventListener('input', (e) => {
-            this.simulation.settings.simulationSpeed = parseFloat(e.target.value);
-        });
-
-        // Tournament controls
-        const startTournamentBtn = document.getElementById('startTournament');
-        const nextRoundBtn = document.getElementById('nextRound');
-
-        if (startTournamentBtn) {
-            startTournamentBtn.addEventListener('click', () => {
-                this.startTournament();
-            });
-        }
-
-        if (nextRoundBtn) {
-            nextRoundBtn.addEventListener('click', () => {
-                this.simulation.endRound();
-            });
-        }
+        // Enhanced settings sliders with real-time display updates
+        this.setupSliderControls();
 
         // Camera/Navigation controls
         this.setupCameraControls();
+    }
+
+    setupSliderControls() {
+        // Helper function to setup slider with value display
+        const setupSlider = (id, property, isNested = false, parentProperty = null, formatter = null) => {
+            const slider = document.getElementById(id);
+            const valueSpan = document.getElementById(id + 'Value');
+            if (slider && valueSpan) {
+                slider.addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    if (isNested && parentProperty) {
+                        this.simulation.settings[parentProperty][property] = value;
+                    } else {
+                        this.simulation.settings[property] = value;
+                    }
+                    valueSpan.textContent = formatter ? formatter(value) : value;
+                });
+                // Set initial value
+                const initialValue = isNested ?
+                    this.simulation.settings[parentProperty][property] :
+                    this.simulation.settings[property];
+                valueSpan.textContent = formatter ? formatter(initialValue) : initialValue;
+            }
+        };
+
+        // Basic Controls
+        setupSlider('cellCount', 'initialCells');
+        setupSlider('simSpeed', 'simulationSpeed', false, null, (v) => v.toFixed(1));
+
+        // Resource Controls  
+        setupSlider('foodSpawnRate', 'foodSpawnRate', false, null, (v) => v.toFixed(1));
+        setupSlider('maxFood', 'maxFood');
+
+        // Evolution Controls
+        setupSlider('mutationRate', 'mutationRate', false, null, (v) => v.toFixed(2));
+        setupSlider('geneticDrift', 'geneticDrift', false, null, (v) => v.toFixed(2));
+
+        // Reproduction Controls
+        setupSlider('birthRate', 'reproductionRate', false, null, (v) => v.toFixed(1));
+        setupSlider('mitosisCooldown', 'mitosisCooldown');
+        setupSlider('energyThreshold', 'energyThreshold', false, null, (v) => v.toFixed(2));
+
+        // Disease Controls
+        setupSlider('virusSpawnRate', 'virusSpawnRate', false, null, (v) => v.toFixed(3));
+        setupSlider('maxViruses', 'maxViruses');
+
+        // Colony Controls
+        setupSlider('colonyThreshold', 'colonyFormationThreshold');
+        setupSlider('maxColonySize', 'maxColonySize');
+
+        // Selection Controls
+        setupSlider('selectionPressure', 'selectionPressure', false, null, (v) => v.toFixed(2));
+        setupSlider('minPopulation', 'minPopulation');
+        setupSlider('maxPopulation', 'maxPopulation');
     }
 
     setupCameraControls() {
