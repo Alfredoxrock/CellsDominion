@@ -136,14 +136,47 @@ header p {
     flex-shrink: 0;
 }
 
-.navigation-controls {
-    position: absolute;
-    top: 10px;
-    right: 10px;
+#navigationPanel {
+    background: rgba(10, 20, 40, 0.95);
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 15px;
+    padding: 20px;
+    min-width: 250px;
+    height: fit-content;
+}
+
+#navigationPanel h3 {
+    color: #00ff88;
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    text-align: center;
+}
+
+#navigationPanel h4 {
+    color: #88ddff;
+    margin: 15px 0 8px 0;
+    font-size: 14px;
+    text-align: center;
+}
+
+.navigation-section {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    z-index: 10;
+    gap: 15px;
+}
+
+.nav-subsection {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 15px;
+}
+
+.pan-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
 }
 
 .nav-group {
@@ -179,22 +212,31 @@ header p {
     min-width: 40px;
 }
 
+#zoomLevel {
+    color: #00ff88;
+    font-family: 'Orbitron', monospace;
+    font-weight: bold;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: center;
+    min-width: 60px;
+    display: inline-block;
+}
+
 .minimap {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
     width: 120px;
     height: 90px;
     background: rgba(0, 0, 0, 0.8);
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
-    z-index: 10;
+    margin: 0 auto;
 }
 
 .minimap-label {
-    position: absolute;
-    top: -25px;
-    left: 0;
+    text-align: center;
+    padding: 5px 0;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.7);
     font-family: 'Orbitron', monospace;

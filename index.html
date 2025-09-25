@@ -37,25 +37,42 @@
         <div id="gameArea">
             <div id="canvasContainer">
                 <canvas id="gameCanvas" width="800" height="600"></canvas>
-                <div class="navigation-controls">
-                    <div class="nav-group zoom-controls">
-                        <button class="nav-btn" id="zoomIn">🔍+</button>
-                        <button class="nav-btn" id="zoomOut">🔍-</button>
-                        <span id="zoomLevel">100%</span>
+            </div>
+
+            <div id="navigationPanel">
+                <h3>🎮 Navigation & View</h3>
+                <div class="navigation-section">
+                    <div class="nav-subsection">
+                        <h4>🔍 Zoom Controls</h4>
+                        <div class="nav-group zoom-controls">
+                            <button class="nav-btn" id="zoomIn">🔍+</button>
+                            <button class="nav-btn" id="zoomOut">🔍-</button>
+                            <span id="zoomLevel">100%</span>
+                        </div>
                     </div>
-                    <div class="nav-group">
-                        <button class="nav-btn" id="panUp">⬆️</button>
+
+                    <div class="nav-subsection">
+                        <h4>🧭 Camera Controls</h4>
+                        <div class="pan-controls">
+                            <div class="nav-group">
+                                <button class="nav-btn" id="panUp">⬆️</button>
+                            </div>
+                            <div class="nav-group">
+                                <button class="nav-btn" id="panLeft">⬅️</button>
+                                <button class="nav-btn" id="panCenter">🎯</button>
+                                <button class="nav-btn" id="panRight">➡️</button>
+                            </div>
+                            <div class="nav-group">
+                                <button class="nav-btn" id="panDown">⬇️</button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="nav-group">
-                        <button class="nav-btn" id="panLeft">⬅️</button>
-                        <button class="nav-btn" id="panCenter">🎯</button>
-                        <button class="nav-btn" id="panRight">➡️</button>
-                    </div>
-                    <div class="nav-group">
-                        <button class="nav-btn" id="panDown">⬇️</button>
-                    </div>
-                    <div class="minimap">
-                        <div class="minimap-label">Map</div>
+
+                    <div class="nav-subsection">
+                        <h4>🗺️ Mini Map</h4>
+                        <div class="minimap">
+                            <div class="minimap-label">Map</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -76,7 +93,6 @@
                     <div id="roundInfo">
                         <p>Current Round: <span id="currentRound">1</span></p>
                         <p>Round Status: <span id="roundStatus">waiting</span></p>
-                        <p>Time Left: <span id="roundTimeLeft">0</span>s</p>
                         <p>Current Winners: <span id="roundWinners">0</span></p>
                     </div>
                     <div id="tournamentControls">
