@@ -365,6 +365,62 @@
                 </div>
             </div>
 
+            <!-- Comprehensive Traits Analytics Panel -->
+            <div class="stats-group">
+                <h3>🧬 Comprehensive Trait Analytics</h3>
+                <div class="comprehensive-traits">
+                    <div class="trait-category">
+                        <h4>📊 Population Overview</h4>
+                        <div class="trait-summary">
+                            <div class="stat-item">
+                                <span>🔬 Total Entities:</span>
+                                <span id="totalEntities">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>🧬 Cells:</span>
+                                <span id="totalCells">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>🦠 Viruses:</span>
+                                <span id="totalViruses">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="trait-category">
+                        <h4>🔢 Key Numerical Traits (Averages)</h4>
+                        <div class="numerical-traits" id="numericalTraits">
+                            <!-- Populated dynamically by JavaScript -->
+                        </div>
+                    </div>
+
+                    <div class="trait-category">
+                        <h4>📈 Trait Diversity Metrics</h4>
+                        <div class="trait-summary">
+                            <div class="stat-item">
+                                <span>🌿 Shannon Index:</span>
+                                <span id="shannonIndex">0.00</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>🎯 Simpson Index:</span>
+                                <span id="simpsonIndex">0.00</span>
+                            </div>
+                            <div class="stat-item">
+                                <span>⚖️ Evenness:</span>
+                                <span id="evenness">0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="trait-category">
+                        <h4>🦠 Viral Characteristics</h4>
+                        <div class="viral-traits" id="viralTraits">
+                            <!-- Populated dynamically for virus-specific traits -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="chartContainer">
                 <canvas id="populationChart" width="400" height="200"></canvas>
             </div>

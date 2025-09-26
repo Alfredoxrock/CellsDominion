@@ -105,6 +105,9 @@ class UIManager {
         // Update trait distribution
         this.updateTraitBars(stats.traitDistribution);
 
+        // Update comprehensive traits panel
+        this.updateComprehensiveTraits(stats.traitDistribution);
+
         // Update chart every 10 ticks to avoid performance issues
         if (stats.tick % 10 === 0) {
             this.updateChart(stats);
@@ -299,6 +302,123 @@ class UIManager {
             if (fillElement) fillElement.style.width = '0%';
             if (countElement) countElement.textContent = '0';
         });
+    }
+
+    updateComprehensiveTraits(traitDistribution) {
+        // Update population overview
+        const totalEntitiesEl = document.getElementById('totalEntities');
+        const totalCellsEl = document.getElementById('totalCells');
+        const totalVirusesEl = document.getElementById('totalViruses');
+
+        if (totalEntitiesEl) totalEntitiesEl.textContent = traitDistribution.total || 0;
+        if (totalCellsEl) totalCellsEl.textContent = traitDistribution.cellCount || 0;
+        if (totalVirusesEl) totalVirusesEl.textContent = traitDistribution.virusCount || 0;
+
+        // Update numerical traits
+        const numericalTraitsContainer = document.getElementById('numericalTraits');
+        if (numericalTraitsContainer) {
+            this.populateNumericalTraits(numericalTraitsContainer, traitDistribution.averages);
+        }
+
+        // Update viral traits  
+        const viralTraitsContainer = document.getElementById('viralTraits');
+        if (viralTraitsContainer) {
+            this.populateViralTraits(viralTraitsContainer, traitDistribution.averages);
+        }
+
+        // Calculate and update diversity metrics
+        this.updateDiversityMetrics(traitDistribution);
+    }
+
+    populateNumericalTraits(container, averages) {
+        const keyTraits = [
+            { key: 'health', name: '❤️ Health', format: (v) => v.toFixed(1) },
+            { key: 'size', name: '📏 Size', format: (v) => v.toFixed(1) },
+            { key: 'speed', name: '💨 Speed', format: (v) => v.toFixed(1) },
+            { key: 'energy', name: '⚡ Energy', format: (v) => v.toFixed(1) },
+            { key: 'metabolicEfficiency', name: '🔄 Metabolism', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'visionRange', name: '👁️ Vision', format: (v) => v.toFixed(1) },
+            { key: 'attackPower', name: '⚔️ Attack', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'armorThickness', name: '🛡️ Armor', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'regenerationRate', name: '💚 Regen', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'aggression', name: '😠 Aggression', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'curiosity', name: '🤔 Curiosity', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'adaptability', name: '🌿 Adaptability', format: (v) => (v * 100).toFixed(1) + '%' }
+        ];
+
+        container.innerHTML = '';
+        keyTraits.forEach(trait => {
+            const data = averages[trait.key];
+            if (data && data.count > 0) {
+                const item = document.createElement('div');
+                item.className = 'numerical-trait-item';
+                item.innerHTML = `
+                    <span class="trait-name">${trait.name}:</span>
+                    <span class="trait-value">${trait.format(data.average)}</span>
+                `;
+                container.appendChild(item);
+            }
+        });
+    }
+
+    populateViralTraits(container, averages) {
+        const viralTraits = [
+            { key: 'infectivity', name: '🦠 Infectivity', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'virulence', name: '☠️ Virulence', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'transmissionRange', name: '📡 Range', format: (v) => v.toFixed(1) },
+            { key: 'replicationSpeed', name: '📈 Replication', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'hostSpecificity', name: '🎯 Specificity', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'heatStability', name: '🌡️ Heat Resist', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'chemicalResistance', name: '🧪 Chem Resist', format: (v) => (v * 100).toFixed(1) + '%' },
+            { key: 'hostManipulation', name: '🧠 Manipulation', format: (v) => (v * 100).toFixed(1) + '%' }
+        ];
+
+        container.innerHTML = '';
+        viralTraits.forEach(trait => {
+            const data = averages[trait.key];
+            if (data && data.count > 0) {
+                const item = document.createElement('div');
+                item.className = 'viral-trait-item';
+                item.innerHTML = `
+                    <span class="trait-name">${trait.name}:</span>
+                    <span class="trait-value">${trait.format(data.average)}</span>
+                `;
+                container.appendChild(item);
+            }
+        });
+    }
+
+    updateDiversityMetrics(traitDistribution) {
+        // Calculate Shannon diversity index
+        const total = traitDistribution.total;
+        let shannon = 0;
+        let simpson = 0;
+
+        if (total > 0) {
+            Object.values(traitDistribution.counts).forEach(count => {
+                if (count > 0) {
+                    const p = count / total;
+                    shannon += -p * Math.log2(p);
+                    simpson += p * p;
+                }
+            });
+
+            simpson = 1 - simpson; // Simpson's diversity index
+
+            // Calculate evenness (Shannon / log2(species count))
+            const speciesCount = Object.values(traitDistribution.counts).filter(count => count > 0).length;
+            const maxShannon = speciesCount > 1 ? Math.log2(speciesCount) : 1;
+            const evenness = maxShannon > 0 ? shannon / maxShannon : 0;
+
+            // Update display
+            const shannonEl = document.getElementById('shannonIndex');
+            const simpsonEl = document.getElementById('simpsonIndex');
+            const evennessEl = document.getElementById('evenness');
+
+            if (shannonEl) shannonEl.textContent = shannon.toFixed(2);
+            if (simpsonEl) simpsonEl.textContent = simpson.toFixed(2);
+            if (evennessEl) evennessEl.textContent = evenness.toFixed(2);
+        }
     }
 }
 

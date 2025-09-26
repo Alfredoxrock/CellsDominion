@@ -218,47 +218,111 @@ class Cell {
         this.infectionSeverity = 0;
         this.infectedBy = null;
 
-        // Core traits (DNA) - Enhanced with many new features
+        // Core traits (DNA) - MASSIVELY ENHANCED with 50+ traits
         this.traits = {
-            // Basic physical traits
+            // === BASIC PHYSICAL TRAITS ===
             health: traits.health || 80 + Math.random() * 40, // 80-120
             maxHealth: traits.maxHealth || traits.health || 100,
             size: traits.size || 8 + Math.random() * 8, // 8-16 radius (starting size)
-            maxSize: traits.maxSize || (traits.size || 16) + Math.random() * 12, // Maximum growth size: 16-28
-            growthRate: traits.growthRate || 0.01 + Math.random() * 0.02, // Growth per food consumed: 0.01-0.03 (increased)
+            maxSize: traits.maxSize || (traits.size || 16) + Math.random() * 16, // Increased maximum growth size: 16-32 (was 16-28)
+            growthRate: traits.growthRate || 0.015 + Math.random() * 0.035, // Enhanced growth per food consumed: 0.015-0.05 (was 0.01-0.03)
             speed: traits.speed || 0.5 + Math.random() * 1.5, // 0.5-2.0
             energy: traits.energy || 60 + Math.random() * 40, // 60-100
             maxEnergy: traits.maxEnergy || traits.energy || 80,
+            density: traits.density || 0.7 + Math.random() * 0.6, // 0.7-1.3 (affects mass)
+            flexibility: traits.flexibility || 0.3 + Math.random() * 0.7, // 0.3-1.0 (collision resistance)
+            transparency: traits.transparency || Math.random() * 0.4, // 0.0-0.4 (camouflage)
+            luminescence: traits.luminescence || Math.random() * 0.8, // 0.0-0.8 (bioluminescence)
 
-            // Lifespan and aging mechanics
-            baseLifespan: traits.baseLifespan || 800000 + Math.random() * 600000, // Base lifespan: 800,000-1,400,000 ticks (100x increase)
-            lifespanMultiplier: traits.lifespanMultiplier || 100.0, // Affected by size (100x increase)
-            agingRate: traits.agingRate || 0.8 + Math.random() * 0.4, // How fast they age: 0.8-1.2
+            // === LIFESPAN AND AGING ===
+            baseLifespan: traits.baseLifespan || 800000 + Math.random() * 600000, // 800k-1.4M ticks
+            lifespanMultiplier: traits.lifespanMultiplier || 100.0, // Size effect on lifespan
+            agingRate: traits.agingRate || 0.8 + Math.random() * 0.4, // 0.8-1.2 aging speed
+            longevityGenes: traits.longevityGenes || Math.random() * 0.5, // 0.0-0.5 (extends lifespan)
+            regenerationRate: traits.regenerationRate || 0.1 + Math.random() * 0.4, // 0.1-0.5 healing speed
 
-            // Shape and defense
-            shape: traits.shape || this.randomShape(),
-            defenseType: traits.defenseType || this.randomDefenseType(),
-
-            // New advanced traits
-            specialAbility: traits.specialAbility || this.randomSpecialAbility(),
+            // === METABOLIC TRAITS ===
+            metabolicEfficiency: traits.metabolicEfficiency || 0.5 + Math.random() * 0.5, // 0.5-1.0 energy conversion
+            hungerTolerance: traits.hungerTolerance || 0.2 + Math.random() * 0.6, // 0.2-0.8 survive without food
+            digestiveCapacity: traits.digestiveCapacity || 0.4 + Math.random() * 0.6, // 0.4-1.0 food processing
+            energyStorage: traits.energyStorage || 0.8 + Math.random() * 0.4, // 0.8-1.2 max energy multiplier
             metabolismType: traits.metabolismType || this.randomMetabolismType(),
-            socialBehavior: traits.socialBehavior || this.randomSocialBehavior(),
-            lifestage: traits.lifestage || 'juvenile',
+            fermentationAbility: traits.fermentationAbility || Math.random() * 0.6, // 0.0-0.6 anaerobic energy
+            photosynthesis: traits.photosynthesis || Math.random() * 0.7, // 0.0-0.7 light energy conversion
 
-            // Environmental adaptations
+            // === ENVIRONMENTAL RESISTANCE ===
             temperatureTolerance: traits.temperatureTolerance || 0.3 + Math.random() * 0.4,
             acidTolerance: traits.acidTolerance || 0.3 + Math.random() * 0.4,
             radiationResistance: traits.radiationResistance || 0.2 + Math.random() * 0.3,
-
-            // Sensory and communication
-            visionRange: traits.visionRange || 40 + Math.random() * 60, // 40-100
-            communicationRange: traits.communicationRange || 30 + Math.random() * 50,
-            pheromoneProduction: traits.pheromoneProduction || 0.1 + Math.random() * 0.4,
-
-            // Advanced abilities
             toxinResistance: traits.toxinResistance || Math.random() * 0.5,
+            pressureResistance: traits.pressureResistance || 0.3 + Math.random() * 0.5, // 0.3-0.8 depth tolerance
+            osmolarityControl: traits.osmolarityControl || 0.4 + Math.random() * 0.4, // 0.4-0.8 salt tolerance
+            oxygenEfficiency: traits.oxygenEfficiency || 0.6 + Math.random() * 0.4, // 0.6-1.0 O2 usage
+            carbondioxideTolerance: traits.carbondioxideTolerance || 0.2 + Math.random() * 0.6, // CO2 tolerance
+
+            // === SENSORY ABILITIES ===
+            visionRange: traits.visionRange || 40 + Math.random() * 60, // 40-100
+            visionAcuity: traits.visionAcuity || 0.4 + Math.random() * 0.6, // 0.4-1.0 vision quality
+            chemoreception: traits.chemoreception || 0.3 + Math.random() * 0.7, // 0.3-1.0 chemical detection
+            mechanoreception: traits.mechanoreception || 0.2 + Math.random() * 0.6, // 0.2-0.8 vibration sensing
             magneticSensitivity: traits.magneticSensitivity || Math.random() * 0.4,
-            electrogenesis: traits.electrogenesis || Math.random() * 0.3,
+            electroreception: traits.electroreception || Math.random() * 0.5, // 0.0-0.5 electrical field detection
+            thermoreception: traits.thermoreception || 0.3 + Math.random() * 0.5, // 0.3-0.8 temperature sensing
+            gravitySensing: traits.gravitySensing || Math.random() * 0.4, // 0.0-0.4 gravity orientation
+
+            // === COMMUNICATION & SOCIAL - ENHANCED FRIENDLINESS ===
+            communicationRange: traits.communicationRange || 40 + Math.random() * 60, // Increased range for better cooperation
+            pheromoneProduction: traits.pheromoneProduction || 0.3 + Math.random() * 0.6, // More pheromone production
+            pheromoneDetection: traits.pheromoneDetection || 0.4 + Math.random() * 0.6, // 0.4-1.0 better chemical detection
+            socialIntelligence: traits.socialIntelligence || 0.5 + Math.random() * 0.5, // 0.5-1.0 much higher cooperation
+            territorialInstinct: traits.territorialInstinct || Math.random() * 0.3, // 0.0-0.3 reduced territoriality
+            packCoordination: traits.packCoordination || 0.3 + Math.random() * 0.7, // 0.3-1.0 better group behavior
+            altruism: traits.altruism || 0.2 + Math.random() * 0.6, // 0.2-0.8 much more helping behavior
+            socialBehavior: traits.socialBehavior || this.randomSocialBehavior(),
+
+            // === OFFENSIVE CAPABILITIES - REDUCED FOR FRIENDLINESS ===
+            attackPower: traits.attackPower || 0.2 + Math.random() * 0.4, // 0.2-0.6 much lower damage (was 0.5-1.3)
+            weaponSharpness: traits.weaponSharpness || Math.random() * 0.3, // 0.0-0.3 reduced piercing (was 0.9)
+            venomPotency: traits.venomPotency || Math.random() * 0.3, // 0.0-0.3 weaker poison (was 0.7)
+            paralyzingToxin: traits.paralyzingToxin || Math.random() * 0.2, // 0.0-0.2 less paralysis (was 0.6)
+            corrosiveSecretion: traits.corrosiveSecretion || Math.random() * 0.2, // 0.0-0.2 weaker acid (was 0.5)
+            electrogenesis: traits.electrogenesis || Math.random() * 0.15, // 0.0-0.15 weaker electrical (was 0.3)
+            sonicAttack: traits.sonicAttack || Math.random() * 0.2, // 0.0-0.2 weaker sonic (was 0.4)
+
+            // === DEFENSIVE CAPABILITIES ===
+            armorThickness: traits.armorThickness || Math.random() * 0.8, // 0.0-0.8 physical protection
+            spineLength: traits.spineLength || Math.random() * 0.6, // 0.0-0.6 spike defense
+            camouflageAbility: traits.camouflageAbility || Math.random() * 0.7, // 0.0-0.7 invisibility
+            mimicrySkill: traits.mimicrySkill || Math.random() * 0.5, // 0.0-0.5 appearance copying
+            warningColoration: traits.warningColoration || Math.random() * 0.6, // 0.0-0.6 deterrent display
+            escapeBurst: traits.escapeBurst || Math.random() * 0.8, // 0.0-0.8 sudden speed boost
+            decoyProduction: traits.decoyProduction || Math.random() * 0.4, // 0.0-0.4 false targets
+
+            // === REPRODUCTIVE TRAITS ===
+            fertilityRate: traits.fertilityRate || 0.6 + Math.random() * 0.4, // 0.6-1.0 reproduction success
+            offspringNumber: traits.offspringNumber || 0.8 + Math.random() * 0.7, // 0.8-1.5 offspring count modifier
+            parentalCare: traits.parentalCare || Math.random() * 0.8, // 0.0-0.8 offspring protection
+            geneticStability: traits.geneticStability || 0.4 + Math.random() * 0.6, // 0.4-1.0 mutation resistance
+            hybridVigor: traits.hybridVigor || Math.random() * 0.5, // 0.0-0.5 crossbreeding bonus
+            reproductiveAge: traits.reproductiveAge || 0.2 + Math.random() * 0.3, // 0.2-0.5 maturity threshold
+
+            // === BEHAVIORAL TRAITS - ENHANCED FRIENDLINESS ===
+            aggression: traits.aggression || Math.random() * 0.3, // 0.0-0.3 much lower aggression (was 0.2-0.8)
+            curiosity: traits.curiosity || 0.3 + Math.random() * 0.7, // 0.3-1.0 higher curiosity
+            caution: traits.caution || 0.5 + Math.random() * 0.4, // 0.5-0.9 more cautious (avoid fights)
+            adaptability: traits.adaptability || 0.6 + Math.random() * 0.4, // 0.6-1.0 better adaptation
+            memory: traits.memory || 0.4 + Math.random() * 0.6, // 0.4-1.0 better memory
+            patternRecognition: traits.patternRecognition || 0.3 + Math.random() * 0.6, // 0.3-0.9 better recognition
+            riskTaking: traits.riskTaking || Math.random() * 0.4, // 0.0-0.4 less risky behavior (was 0.2-1.0)
+
+            // === SHAPE AND APPEARANCE ===
+            shape: traits.shape || this.randomShape(),
+            defenseType: traits.defenseType || this.randomDefenseType(),
+            specialAbility: traits.specialAbility || this.randomSpecialAbility(),
+            lifestage: traits.lifestage || 'juvenile',
+            symmetry: traits.symmetry || 0.5 + Math.random() * 0.5, // 0.5-1.0 body symmetry
+            surfaceTexture: traits.surfaceTexture || Math.random(), // 0.0-1.0 surface roughness
+            colorIntensity: traits.colorIntensity || 0.3 + Math.random() * 0.7, // 0.3-1.0 coloration strength
 
             ...traits
         };
@@ -579,15 +643,15 @@ class Cell {
 
         this.growthPoints += nutritionValue * this.traits.growthRate;
 
-        // EXPONENTIAL GROWTH: Growth rate increases with current size
-        const exponentialFactor = Math.pow(1.1, this.traits.size / 10); // Exponential scaling
-        const growthThreshold = Math.max(0.5, this.traits.size * 1.5 / exponentialFactor); // Lower threshold for larger cells
+        // EXPONENTIAL GROWTH: Growth rate increases with current size - ENHANCED
+        const exponentialFactor = Math.pow(1.15, this.traits.size / 8); // Enhanced exponential scaling (was 1.1 and /10)
+        const growthThreshold = Math.max(0.3, this.traits.size * 1.2 / exponentialFactor); // Lower threshold for faster growth (was 0.5 and 1.5)
 
         if (this.growthPoints >= growthThreshold) {
             const oldSize = this.traits.size;
 
-            // EXPONENTIAL GROWTH CALCULATION
-            const baseGrowthAmount = this.growthPoints * 0.3; // Base growth
+            // EXPONENTIAL GROWTH CALCULATION - ENHANCED
+            const baseGrowthAmount = this.growthPoints * 0.4; // Enhanced base growth (was 0.3)
             const exponentialGrowth = baseGrowthAmount * exponentialFactor; // Exponential multiplier
             const finalGrowthAmount = Math.min(exponentialGrowth, this.traits.maxSize - this.traits.size);
 
@@ -596,16 +660,16 @@ class Cell {
             this.growthPoints = 0;
             this.lastGrowthTime = this.age;
 
-            // Growing increases health and energy capacity exponentially
+            // Growing increases health and energy capacity exponentially - ENHANCED BONUSES
             const sizeIncrease = this.traits.size - oldSize;
-            const statMultiplier = Math.pow(1.2, sizeIncrease); // Exponential stat growth
+            const statMultiplier = Math.pow(1.25, sizeIncrease); // Enhanced stat growth multiplier (was 1.2)
 
-            this.traits.maxHealth += sizeIncrease * 12 * statMultiplier; // Enhanced health growth
-            this.traits.maxEnergy += sizeIncrease * 10 * statMultiplier; // Enhanced energy growth
+            this.traits.maxHealth += sizeIncrease * 15 * statMultiplier; // Enhanced health growth (was 12)
+            this.traits.maxEnergy += sizeIncrease * 12 * statMultiplier; // Enhanced energy growth (was 10)
 
-            // Immediate exponential stat boost from growth
-            this.traits.health += sizeIncrease * 8 * statMultiplier;
-            this.traits.energy += sizeIncrease * 6 * statMultiplier;
+            // Immediate exponential stat boost from growth - ENHANCED
+            this.traits.health += sizeIncrease * 10 * statMultiplier; // Enhanced immediate health (was 8)
+            this.traits.energy += sizeIncrease * 8 * statMultiplier; // Enhanced immediate energy (was 6)
 
             // Recalculate derived properties
             this.mass = this.calculateMass();
@@ -1784,23 +1848,28 @@ class Cell {
             this.target = null;
         }
 
-        // Decision priority:
+        // FRIENDLY Decision priority:
         // 1. Low energy -> find food
-        // 2. High energy + find food -> reproduce
-        // 3. Enemy nearby -> fight or flee
-        // 4. Random movement
+        // 2. Look for cooperation opportunities with nearby cells
+        // 3. High energy -> reproduce
+        // 4. Avoid conflicts and seek peaceful coexistence
+        // 5. Random peaceful movement
 
         const energyRatio = this.traits.energy / this.traits.maxEnergy;
+        const socialIntelligence = this.traits.socialIntelligence || 0.5;
 
         if (energyRatio < 0.4) {
             // Desperately need food
             this.seekFood(food);
+        } else if (socialIntelligence > 0.6 && Math.random() < 0.3) {
+            // Look for cooperation opportunities with high social intelligence
+            this.seekCooperationOpportunity(cells);
         } else if (energyRatio > 0.8 && this.age > 300) {
             // Ready to reproduce
             this.considerReproduction();
         } else {
-            // Look for opportunities (food or conflict)
-            this.evaluateEnvironment(cells, food);
+            // Look for peaceful opportunities (food, avoid conflict)
+            this.evaluateEnvironmentPeacefully(cells, food);
         }
 
         // Apply role-based movement when no target
@@ -1977,6 +2046,71 @@ class Cell {
         // Keep target within world bounds
         this.explorationTarget.x = Math.max(20, Math.min(this.explorationTarget.x, 1180));
         this.explorationTarget.y = Math.max(20, Math.min(this.explorationTarget.y, 580));
+    }
+
+    // NEW: Seek cooperation opportunities for friendly interactions
+    seekCooperationOpportunity(cells) {
+        const nearbyFriendlyCells = cells.filter(cell =>
+            cell !== this &&
+            this.distanceTo(cell) < this.traits.communicationRange &&
+            cell.traits.socialIntelligence > 0.4 &&
+            cell.traits.aggression < 0.4
+        );
+
+        if (nearbyFriendlyCells.length > 0) {
+            // Target the most social nearby cell for cooperation
+            const friendliestCell = nearbyFriendlyCells.reduce((best, current) =>
+                (current.traits.socialIntelligence + current.traits.altruism) >
+                    (best.traits.socialIntelligence + best.traits.altruism) ? current : best
+            );
+
+            this.target = friendliestCell;
+            this.cooperativeIntent = true; // Flag this as a friendly approach
+        }
+    }
+
+    // NEW: Peaceful environment evaluation (avoid conflicts)
+    evaluateEnvironmentPeacefully(cells, food) {
+        // Look for food first
+        const nearbyFood = food.filter(f => !f.consumed && this.distanceTo(f) < this.traits.visionRange);
+
+        if (nearbyFood.length > 0) {
+            this.target = this.findClosestFood(nearbyFood);
+            return;
+        }
+
+        // Avoid aggressive cells
+        const aggressiveCells = cells.filter(cell =>
+            cell !== this &&
+            this.distanceTo(cell) < this.traits.visionRange * 0.8 &&
+            cell.traits.aggression > 0.5
+        );
+
+        if (aggressiveCells.length > 0) {
+            // Move away from aggressive cells
+            const closestThreat = aggressiveCells.reduce((closest, current) =>
+                this.distanceTo(current) < this.distanceTo(closest) ? current : closest
+            );
+
+            // Set movement away from threat
+            const avoidAngle = Math.atan2(this.y - closestThreat.y, this.x - closestThreat.x);
+            this.vx += Math.cos(avoidAngle) * 0.5;
+            this.vy += Math.sin(avoidAngle) * 0.5;
+        }
+
+        // Look for friendly social gatherings
+        const socialCells = cells.filter(cell =>
+            cell !== this &&
+            this.distanceTo(cell) < this.traits.visionRange &&
+            cell.traits.socialIntelligence > 0.6
+        );
+
+        if (socialCells.length >= 2 && Math.random() < 0.3) {
+            // Join social gathering
+            const centerX = socialCells.reduce((sum, cell) => sum + cell.x, 0) / socialCells.length;
+            const centerY = socialCells.reduce((sum, cell) => sum + cell.y, 0) / socialCells.length;
+            this.moveTowards(centerX, centerY);
+        }
     }
 
     seekNomadGroup() {
@@ -2275,6 +2409,27 @@ class Cell {
         }
     }
 
+    // Helper method to find closest food from a list
+    findClosestFood(foodList) {
+        let closestFood = null;
+        let closestDistance = Infinity;
+
+        foodList.forEach(particle => {
+            if (particle.consumed) return;
+
+            const dx = particle.x - this.x;
+            const dy = particle.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closestFood = particle;
+            }
+        });
+
+        return closestFood;
+    }
+
     evaluateEnvironment(cells, food) {
         // Look for nearby threats and opportunities
         const detectionRadius = this.traits.size * 4;
@@ -2384,40 +2539,43 @@ class Cell {
         let reproductionCooldown = this.simulation?.settings?.mitosisCooldown || 400; // Use simulation settings
         let energyThreshold = this.simulation?.settings?.energyThreshold || 0.6;      // Use simulation settings
 
-        // GROWTH ENHANCEMENT: Population pressure bonus for small populations
+        // ENHANCED GROWTH MECHANICS: Population pressure bonus for small populations
         // Small populations should reproduce more aggressively to recover
-        if (this.globalPopulation && this.globalPopulation < 80) {
-            reproductionCooldown *= 0.5; // 50% faster reproduction for small populations
-            energyThreshold -= 0.15;      // Much easier reproduction when population is low
-        } else if (this.globalPopulation && this.globalPopulation < 150) {
-            reproductionCooldown *= 0.7; // 30% faster reproduction for growing populations  
+        if (this.globalPopulation && this.globalPopulation < 100) {
+            reproductionCooldown *= 0.3; // Much faster reproduction for very small populations (was 0.5)
+            energyThreshold -= 0.25;      // Much easier reproduction when population is critically low (was -0.15)
+        } else if (this.globalPopulation && this.globalPopulation < 200) {
+            reproductionCooldown *= 0.5; // Faster reproduction for growing populations (was 0.7)  
+            energyThreshold -= 0.15;      // Easier reproduction (was -0.08)
+        } else if (this.globalPopulation && this.globalPopulation < 400) {
+            reproductionCooldown *= 0.7; // Still enhanced reproduction for medium populations
             energyThreshold -= 0.08;
         }
 
-        // GROWTH ENHANCEMENT: Abundance boost from ecosystem events
+        // ENHANCED GROWTH MECHANICS: Abundance boost from ecosystem events
         if (this.abundanceBoost > 0) {
-            reproductionCooldown *= 0.2; // 80% faster reproduction during abundance
-            energyThreshold -= 0.2;       // Much lower energy requirement
-            this.abundanceBoost--;        // Countdown the boost
+            reproductionCooldown *= 0.15; // Even faster reproduction during abundance (was 0.2)
+            energyThreshold -= 0.25;       // Much lower energy requirement (was -0.2)
+            this.abundanceBoost--;         // Countdown the boost
         }
 
-        // Food-dependent reproduction - cells that ate recently reproduce faster
+        // Food-dependent reproduction - cells that ate recently reproduce faster - ENHANCED
         const timeSinceFood = this.age - (this.lastFoodTime || 0);
-        if (timeSinceFood < 100) { // Recently ate (within 100 ticks)
-            reproductionCooldown *= 0.4; // 60% faster reproduction
-            energyThreshold -= 0.15;      // Lower energy requirement
-        } else if (timeSinceFood < 300) { // Somewhat recently fed
-            reproductionCooldown *= 0.7; // 30% faster reproduction
-            energyThreshold -= 0.08;
+        if (timeSinceFood < 120) { // Extended window for recent eating (was 100)
+            reproductionCooldown *= 0.25; // Much faster reproduction (was 0.4)
+            energyThreshold -= 0.2;        // Lower energy requirement (was -0.15)
+        } else if (timeSinceFood < 400) { // Extended window for somewhat recent feeding (was 300)
+            reproductionCooldown *= 0.5; // Faster reproduction (was 0.7)
+            energyThreshold -= 0.12;      // Lower energy requirement (was -0.08)
         }
 
-        // Well-fed cells reproduce much more aggressively  
+        // Well-fed cells reproduce much more aggressively - ENHANCED  
         if (energyRatio > 0.9) {
-            reproductionCooldown *= 0.3; // Very fast reproduction when full energy
+            reproductionCooldown *= 0.2; // Even faster reproduction when full energy (was 0.3)
             energyThreshold = 0.85;       // High energy still required for quality offspring
         } else if (energyRatio > 0.8) {
-            reproductionCooldown *= 0.5; // Fast reproduction
-            energyThreshold = 0.75;
+            reproductionCooldown *= 0.35; // Faster reproduction (was 0.5)
+            energyThreshold = 0.7;         // Slightly lower threshold (was 0.75)
         }
 
         // Predation bonus - cells that consumed others can reproduce immediately
@@ -3679,19 +3837,65 @@ class Cell {
 // Virus class - infectious agents that can infect cells
 class Virus extends Cell {
     constructor(x, y, traits = {}) {
-        // Viruses are smaller and faster than regular cells
+        // Viruses are smaller and faster than regular cells but share trait system
         const virusTraits = {
+            // === BASIC VIRAL PHYSICAL TRAITS ===
             health: 20 + Math.random() * 20, // 20-40 (much lower than cells)
             size: 3 + Math.random() * 4, // 3-7 (smaller than cells)
             maxSize: 15 + Math.random() * 10, // Can grow larger than starting size
             speed: 2 + Math.random() * 2, // 2-4 (faster than cells)
             energy: 30 + Math.random() * 20, // 30-50
             growthRate: 1.2 + Math.random() * 0.6, // 1.2-1.8 (faster growth)
-            baseLifespan: 200000, // Base lifespan increased 100x (was 2000)
-            lifespanMultiplier: 80000, // Size affects lifespan less than cells (100x increase)
+            baseLifespan: 200000, // Base lifespan increased 100x
+            lifespanMultiplier: 80000, // Size affects lifespan (100x increase)
+
+            // === VIRAL-SPECIFIC TRAITS ===
+            infectivity: 0.4 + Math.random() * 0.5, // 0.4-0.9 infection success rate
+            virulence: 0.3 + Math.random() * 0.4, // 0.3-0.7 damage to host
+            transmissionRange: 20 + Math.random() * 30, // 20-50 infection radius
+            latencyPeriod: 0.1 + Math.random() * 0.4, // 0.1-0.5 dormancy time
+            hostSpecificity: Math.random() * 0.8, // 0.0-0.8 target selectivity
+            replicationSpeed: 0.6 + Math.random() * 0.6, // 0.6-1.2 reproduction rate
+            antigeneticShift: Math.random() * 0.5, // 0.0-0.5 immune evasion
+            vectorAdaptation: Math.random() * 0.4, // 0.0-0.4 carrier enhancement
+
+            // === ENHANCED VIRAL RESISTANCE ===
+            heatStability: 0.3 + Math.random() * 0.4, // 0.3-0.7 temperature resistance
+            desiccationResistance: 0.2 + Math.random() * 0.6, // 0.2-0.8 drying tolerance
+            chemicalResistance: 0.1 + Math.random() * 0.5, // 0.1-0.6 disinfectant resistance
+            uvResistance: 0.1 + Math.random() * 0.3, // 0.1-0.4 radiation tolerance
+            phResistance: 0.2 + Math.random() * 0.5, // 0.2-0.7 acid/base tolerance
+            enzymaticResistance: Math.random() * 0.6, // 0.0-0.6 enzyme degradation resistance
+
+            // === VIRAL BEHAVIOR TRAITS ===
+            hostManipulation: Math.random() * 0.7, // 0.0-0.7 behavior control
+            dormancyTrigger: 0.2 + Math.random() * 0.5, // 0.2-0.7 hibernation capability
+            burstSize: 0.8 + Math.random() * 0.7, // 0.8-1.5 offspring per reproduction
+            lysisTime: 0.3 + Math.random() * 0.6, // 0.3-0.9 host destruction timing
+            chronicInfection: Math.random() * 0.6, // 0.0-0.6 persistent infection ability
+            crossSpeciesJump: Math.random() * 0.3, // 0.0-0.3 interspecies transmission
+
+            // === METABOLIC ADAPTATIONS ===
+            metabolicHijacking: 0.4 + Math.random() * 0.5, // 0.4-0.9 host resource usage
+            energyEfficiency: 0.7 + Math.random() * 0.3, // 0.7-1.0 viral energy conservation
+            resourceScavenging: 0.3 + Math.random() * 0.6, // 0.3-0.9 nutrient acquisition
+
+            // === INHERIT CELL TRAITS WITH VIRAL MODIFICATIONS ===
+            // Enhanced sensory for finding hosts
+            visionRange: 60 + Math.random() * 80, // Better than cells for hunting
+            chemoreception: 0.6 + Math.random() * 0.4, // Enhanced chemical detection
+            thermoreception: 0.5 + Math.random() * 0.4, // Heat sensing for hosts
+
+            // Viral mobility traits
+            penetrationPower: 0.4 + Math.random() * 0.6, // 0.4-1.0 cell membrane piercing
+            adhesionStrength: 0.3 + Math.random() * 0.5, // 0.3-0.8 attachment to hosts
+            motilityType: Math.random() < 0.3 ? 'flagellar' : 'drift', // Movement type
+
+            // Base traits
             defenseType: 'viral',
             shape: 'star', // Distinctive shape
             specialAbility: 'infection',
+
             ...traits
         };
 

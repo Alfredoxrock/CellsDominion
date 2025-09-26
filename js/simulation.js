@@ -21,18 +21,18 @@ class Simulation {
         // Continuous simulation system (no rounds)
         this.continuousMode = true;
 
-        // Settings for continuous ecosystem
+        // Settings for continuous ecosystem - ENHANCED FOR RAPID GROWTH
         this.settings = {
-            initialCells: 50,
-            foodSpawnRate: 2.5, // Increased base food rate
-            maxFood: 500, // Maximum food particles on screen
-            mutationRate: 0.15, // Increased for more diversity
-            geneticDrift: 0.08, // How much traits drift randomly
+            initialCells: 75, // Increased starting population
+            foodSpawnRate: 4.2, // Increased food rate to support rapid growth (was 2.5)
+            maxFood: 750, // Increased maximum food particles (was 500)
+            mutationRate: 0.12, // Slightly reduced for stability
+            geneticDrift: 0.06, // Reduced drift for more stable growth
             simulationSpeed: 1.0,
-            minPopulation: 50, // Higher minimum to prevent bottlenecks  
-            maxPopulation: 2000, // Natural carrying capacity
-            virusSpawnRate: 0.005, // Reduced virus pressure on small populations
-            maxViruses: 15,
+            minPopulation: 75, // Higher minimum to maintain robust populations  
+            maxPopulation: 3500, // Increased carrying capacity (was 2000)
+            virusSpawnRate: 0.001, // Much reduced virus pressure for friendlier ecosystem (was 0.003)
+            maxViruses: 5, // Significantly reduced max viruses (was 12)
 
             // Natural ecosystem settings
             naturalSelectionEnabled: true,
@@ -41,10 +41,10 @@ class Simulation {
             traitStabilization: 2000,
             environmentalPressure: 0.15,
 
-            // Reproduction settings
-            reproductionRate: 1.2, // Base reproduction multiplier (birth rate)
-            mitosisCooldown: 400, // Time between reproduction attempts
-            energyThreshold: 0.6, // Energy level needed to reproduce
+            // Reproduction settings - ENHANCED FOR FASTER MULTIPLICATION
+            reproductionRate: 1.8, // Increased base reproduction multiplier (birth rate)
+            mitosisCooldown: 250, // Reduced time between reproduction attempts (was 400)
+            energyThreshold: 0.45, // Reduced energy level needed to reproduce (was 0.6)
             foodDependentReproduction: true, // Reproduction depends on food
             predationReproduction: true, // Can reproduce after eating other cells
 
@@ -59,6 +59,7 @@ class Simulation {
             generation: 1,
             tick: 0,
             foodCount: 0,
+            virusCount: 0,
             // Ecosystem statistics
             currentSeason: 'spring',
             populationGrowthRate: 0,
@@ -68,13 +69,29 @@ class Simulation {
             biodiversityIndex: 0,
             traitDistribution: {
                 total: 0,
-                counts: {
-                    spikes: 0,
-                    poison: 0,
-                    armor: 0,
-                    regen: 0,
-                    camo: 0
-                }
+                cellCount: 0,
+                virusCount: 0,
+                counts: {},
+                averages: {},
+                ranges: {}
+            },
+            // Advanced ecosystem metrics
+            traitDiversity: {
+                shannon: 0,     // Shannon diversity index
+                simpson: 0,     // Simpson diversity index
+                evenness: 0     // Species evenness
+            },
+            populationDynamics: {
+                birthRate: 0,
+                deathRate: 0,
+                migrationRate: 0,
+                carryingCapacity: 0
+            },
+            evolutionMetrics: {
+                averageMutationRate: 0,
+                traitStability: 0,
+                adaptationSpeed: 0,
+                geneticDrift: 0
             },
             populationHistory: [],
             ecosystemHealth: 100
@@ -197,19 +214,19 @@ class Simulation {
                     }
                 });
 
-                // Handle continuous reproduction based on resources
+                // Handle continuous reproduction based on resources - ENHANCED SUCCESS RATE
                 if (cell.reproduced) {
                     const offspring = this.createOffspring(cell);
-                    // Allow population to grow beyond normal limits during abundance, but with increasing difficulty
-                    const populationPressure = Math.max(1, this.cells.length / this.settings.maxPopulation);
-                    const reproductionSuccess = Math.random() < (1 / populationPressure);
+                    // Enhanced reproduction success rates for faster population growth
+                    const populationPressure = Math.max(0.8, this.cells.length / this.settings.maxPopulation); // Reduced pressure (was 1)
+                    const reproductionSuccess = Math.random() < (1.3 / populationPressure); // Enhanced success rate (was 1 / populationPressure)
 
                     if (offspring && reproductionSuccess) {
                         newCells.push(offspring);
                         this.maxGeneration = Math.max(this.maxGeneration, offspring.generation);
                     } else if (offspring && !reproductionSuccess) {
-                        // Failed reproduction due to overcrowding - convert energy back to parent but with loss
-                        cell.traits.energy += offspring.traits.maxEnergy * 0.3;
+                        // Failed reproduction due to overcrowding - convert energy back to parent but with less loss
+                        cell.traits.energy += offspring.traits.maxEnergy * 0.5; // Reduced energy loss (was 0.3)
                         console.log(`⚠️ Reproduction failed due to overcrowding (pop: ${this.cells.length})`);
                     }
                     cell.reproduced = false; // Reset reproduction flag
@@ -658,15 +675,20 @@ class Simulation {
         return offspring;
     }
 
-    // Enhanced cell interaction with predation
+    // Enhanced cell interaction with COOPERATIVE focus
     handleCellInteraction(cell1, cell2, newCells) {
         if (!cell1.collidesWith(cell2)) return;
+
+        // Check for cooperation opportunities FIRST before any combat
+        if (this.attemptCooperation(cell1, cell2)) {
+            return; // Skip combat if cooperation occurred
+        }
 
         // Store initial health for tracking changes
         const initialHealth1 = cell1.traits.health;
         const initialHealth2 = cell2.traits.health;
 
-        // Check for predation (larger/stronger cells can eat smaller ones)
+        // Much stricter predation requirements to reduce combat
         if (this.canPredate(cell1, cell2)) {
             this.handlePredation(cell1, cell2, newCells);
             return; // Skip normal combat if predation occurred
@@ -675,37 +697,120 @@ class Simulation {
             return;
         }
 
-        // Normal cell combat/interaction
+        // FRIENDLY INTERACTION: Reduced combat damage and energy sharing
         let damage1 = 0;
         let damage2 = 0;
 
-        // Calculate base combat damage
-        const baseDamage1 = cell1.traits.size * 0.15;
-        const baseDamage2 = cell2.traits.size * 0.15;
+        // Much reduced base combat damage for friendliness
+        const baseDamage1 = cell1.traits.size * 0.05; // Reduced from 0.15
+        const baseDamage2 = cell2.traits.size * 0.05; // Reduced from 0.15
 
-        // Apply defense-specific interactions
-        damage1 = this.calculateDefenseInteraction(cell1, cell2, baseDamage1);
-        damage2 = this.calculateDefenseInteraction(cell2, cell1, baseDamage2);
+        // Apply aggression modifiers - peaceful cells fight less
+        const aggression1 = cell1.traits.aggression || 0.3;
+        const aggression2 = cell2.traits.aggression || 0.3;
 
-        // Apply damage
+        damage1 *= aggression1; // Scale damage by aggression
+        damage2 *= aggression2;
+
+        // Apply defense-specific interactions with reduced damage
+        damage1 = this.calculateDefenseInteraction(cell1, cell2, baseDamage1) * 0.5; // 50% damage reduction
+        damage2 = this.calculateDefenseInteraction(cell2, cell1, baseDamage2) * 0.5;
+
+        // Apply minimal damage for friendly ecosystem
         cell1.traits.health -= damage2;
         cell2.traits.health -= damage1;
 
-        // Energy cost for combat
-        cell1.traits.energy -= Math.min(2, cell1.traits.energy * 0.03);
-        cell2.traits.energy -= Math.min(2, cell2.traits.energy * 0.03);
+        // Reduced energy cost for combat
+        cell1.traits.energy -= Math.min(1, cell1.traits.energy * 0.01); // Reduced from 0.03
+        cell2.traits.energy -= Math.min(1, cell2.traits.energy * 0.01);
 
         // Handle special combat effects
         this.handleSpecialCombatEffects(cell1, cell2);
     }
 
-    // Check if one cell can predate another
-    canPredate(predator, prey) {
-        // Basic size requirement - predator must be significantly larger
-        if (predator.traits.size < prey.traits.size * 1.3) return false;
+    // NEW: Cooperation system for friendly interactions
+    attemptCooperation(cell1, cell2) {
+        // Check if both cells are cooperative enough
+        const social1 = cell1.traits.socialIntelligence || 0.5;
+        const social2 = cell2.traits.socialIntelligence || 0.5;
+        const altruism1 = cell1.traits.altruism || 0.4;
+        const altruism2 = cell2.traits.altruism || 0.4;
 
-        // Health requirement - predator must be healthier
-        if (predator.traits.health < prey.traits.health * 0.8) return false;
+        // Higher chance of cooperation for social, altruistic cells
+        const cooperationChance = (social1 + social2 + altruism1 + altruism2) / 4;
+
+        if (Math.random() < cooperationChance * 0.6) { // 60% max cooperation chance
+            // ENERGY SHARING: Cells with more energy share with those with less
+            const totalEnergy = cell1.traits.energy + cell2.traits.energy;
+            const avgEnergy = totalEnergy / 2;
+            const shareAmount = Math.min(5, Math.abs(cell1.traits.energy - cell2.traits.energy) * 0.1);
+
+            if (cell1.traits.energy > cell2.traits.energy) {
+                cell1.traits.energy -= shareAmount;
+                cell2.traits.energy += shareAmount;
+            } else {
+                cell2.traits.energy -= shareAmount;
+                cell1.traits.energy += shareAmount;
+            }
+
+            // HEALING COOPERATION: Healthy cells help heal injured ones
+            if (cell1.traits.health < cell1.traits.maxHealth * 0.7 && cell2.traits.health > cell2.traits.maxHealth * 0.8) {
+                const healAmount = Math.min(3, cell2.traits.energy * 0.02);
+                cell1.traits.health += healAmount;
+                cell2.traits.energy -= healAmount * 0.5;
+            } else if (cell2.traits.health < cell2.traits.maxHealth * 0.7 && cell1.traits.health > cell1.traits.maxHealth * 0.8) {
+                const healAmount = Math.min(3, cell1.traits.energy * 0.02);
+                cell2.traits.health += healAmount;
+                cell1.traits.energy -= healAmount * 0.5;
+            }
+
+            // MUTUAL GROWTH: Both cells get small growth bonus from cooperation
+            cell1.growthPoints += 0.5;
+            cell2.growthPoints += 0.5;
+
+            // Add cooperation visual effects
+            this.addCooperationEffect(cell1, cell2);
+
+            return true; // Cooperation successful
+        }
+
+        return false; // No cooperation
+    }
+
+    // Add visual effects for cooperation
+    addCooperationEffect(cell1, cell2) {
+        // Add heart particles between cooperating cells
+        const midX = (cell1.x + cell2.x) / 2;
+        const midY = (cell1.y + cell2.y) / 2;
+
+        for (let i = 0; i < 3; i++) {
+            cell1.particleEffects.push({
+                x: midX + (Math.random() - 0.5) * 20,
+                y: midY + (Math.random() - 0.5) * 20,
+                color: '#ff69b4', // Pink hearts
+                size: 3 + Math.random() * 2,
+                life: 30,
+                maxLife: 30,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                type: 'heart'
+            });
+        }
+    }
+
+    // Check if one cell can predate another - MUCH STRICTER for friendliness
+    canPredate(predator, prey) {
+        // Much stricter size requirement - predator must be MUCH larger
+        if (predator.traits.size < prey.traits.size * 2.0) return false; // Increased from 1.3
+
+        // Stricter health requirement
+        if (predator.traits.health < prey.traits.health * 1.2) return false; // Increased from 0.8
+
+        // High aggression requirement for predation
+        if ((predator.traits.aggression || 0.3) < 0.4) return false; // Must be aggressive to predate
+
+        // Energy requirement - must have good energy to hunt
+        if (predator.traits.energy < predator.traits.maxEnergy * 0.6) return false;
 
         // Some defense types make cells unpredatable
         if (prey.traits.defenseType === 'explosive') return false;
@@ -873,50 +978,147 @@ class Simulation {
 
     calculateTraitDistribution() {
         const distribution = {
-            total: this.cells.length,
-            counts: {}
+            total: this.cells.length + this.viruses.length,
+            cellCount: this.cells.length,
+            virusCount: this.viruses.length,
+            counts: {},
+            averages: {}, // Track average values for numerical traits
+            ranges: {}    // Track min/max ranges for numerical traits
         };
 
-        // Initialize all possible trait counts
-        const allTraits = [
+        // Initialize comprehensive trait tracking
+        const categoricalTraits = [
             // Defense types
             'spikes', 'poison', 'armor', 'regen', 'camo', 'shield', 'electric', 'magnetic', 'phase', 'swarm', 'mimic', 'explosive', 'viral', 'barrier', 'reflect',
-            // Shapes (with shape- prefix to match HTML)
+            // Shapes
             'shape-circle', 'shape-triangle', 'shape-square', 'shape-hexagon', 'shape-oval', 'shape-star', 'shape-diamond',
-            // Abilities (with ability- prefix to match HTML) 
-            'ability-none', 'ability-photosynthesis', 'ability-parasite', 'ability-pack_hunter', 'ability-territorial', 'ability-migratory', 'ability-burrowing', 'ability-leaping', 'ability-splitting', 'ability-fusion', 'ability-time_dilation', 'ability-energy_vampire', 'ability-shape_shift', 'ability-invisibility',
-            // Life stages (with stage- prefix to match HTML)
-            'stage-juvenile', 'stage-adult', 'stage-elder'
+            // Abilities
+            'ability-none', 'ability-photosynthesis', 'ability-parasite', 'ability-pack_hunter', 'ability-territorial', 'ability-migratory', 'ability-burrowing', 'ability-leaping', 'ability-splitting', 'ability-fusion', 'ability-time_dilation', 'ability-energy_vampire', 'ability-shape_shift', 'ability-invisibility', 'ability-infection',
+            // Life stages
+            'stage-juvenile', 'stage-adult', 'stage-elder',
+            // Motility types
+            'motility-flagellar', 'motility-drift', 'motility-pseudopod', 'motility-ciliary', 'motility-jet'
         ];
 
-        // Initialize all counts to zero
-        allTraits.forEach(trait => {
+        const numericalTraits = [
+            // Basic Physical
+            'health', 'size', 'speed', 'energy', 'density', 'flexibility', 'transparency', 'luminescence',
+            // Metabolic
+            'metabolicEfficiency', 'hungerTolerance', 'photosynthesisRate', 'oxygenEfficiency',
+            // Environmental Resistance
+            'temperatureTolerance', 'pressureResistance', 'toxinResistance', 'osmolarityTolerance',
+            // Sensory Systems
+            'visionRange', 'visionAcuity', 'chemoreception', 'mechanoreception', 'electroreception', 'magnetoreception', 'thermoreception', 'gravitySensing',
+            // Communication/Social
+            'pheromoneDetection', 'pheromoneProduction', 'socialIntelligence', 'territoriality', 'altruism', 'groupCoordination',
+            // Offensive Capabilities
+            'attackPower', 'venomPotency', 'sonicAttack', 'electricalDischarge', 'acidProduction', 'enzymeSecretion',
+            // Defensive Systems
+            'armorThickness', 'camouflageEfficiency', 'mimicryAccuracy', 'regenerationRate', 'immuneResponse', 'stressResistance',
+            // Reproductive
+            'fertilityRate', 'parentalCare', 'geneticStability', 'mutationResistance', 'reproductiveStrategy', 'maturationRate',
+            // Behavioral
+            'aggression', 'curiosity', 'adaptability', 'learningRate', 'memory', 'riskTolerance'
+        ];
+
+        // Viral-specific numerical traits
+        const viralTraits = [
+            'infectivity', 'virulence', 'transmissionRange', 'latencyPeriod', 'hostSpecificity', 'replicationSpeed',
+            'antigeneticShift', 'vectorAdaptation', 'heatStability', 'desiccationResistance', 'chemicalResistance',
+            'uvResistance', 'phResistance', 'enzymaticResistance', 'hostManipulation', 'dormancyTrigger',
+            'burstSize', 'lysisTime', 'chronicInfection', 'crossSpeciesJump', 'metabolicHijacking',
+            'energyEfficiency', 'resourceScavenging', 'penetrationPower', 'adhesionStrength'
+        ];
+
+        // Initialize categorical counts
+        categoricalTraits.forEach(trait => {
             distribution.counts[trait] = 0;
         });
 
-        // Count actual traits from cells
+        // Initialize numerical trait tracking
+        [...numericalTraits, ...viralTraits].forEach(trait => {
+            distribution.averages[trait] = { sum: 0, count: 0, average: 0 };
+            distribution.ranges[trait] = { min: Infinity, max: -Infinity };
+        });
+
+        // Process all cells
         this.cells.forEach(cell => {
-            // Count defense types directly
+            // Count categorical traits
             if (distribution.counts.hasOwnProperty(cell.traits.defenseType)) {
                 distribution.counts[cell.traits.defenseType]++;
             }
 
-            // Count shapes with prefix
             const shapeKey = `shape-${cell.traits.shape}`;
             if (distribution.counts.hasOwnProperty(shapeKey)) {
                 distribution.counts[shapeKey]++;
             }
 
-            // Count abilities with prefix
             const abilityKey = `ability-${cell.traits.specialAbility}`;
             if (distribution.counts.hasOwnProperty(abilityKey)) {
                 distribution.counts[abilityKey]++;
             }
 
-            // Count life stages with prefix  
-            const stageKey = `stage-${cell.traits.lifestage}`;
+            const stageKey = `stage-${cell.traits.lifestage || 'adult'}`;
             if (distribution.counts.hasOwnProperty(stageKey)) {
                 distribution.counts[stageKey]++;
+            }
+
+            // Process numerical traits
+            numericalTraits.forEach(trait => {
+                const value = cell.traits[trait];
+                if (value !== undefined && typeof value === 'number') {
+                    distribution.averages[trait].sum += value;
+                    distribution.averages[trait].count++;
+                    distribution.ranges[trait].min = Math.min(distribution.ranges[trait].min, value);
+                    distribution.ranges[trait].max = Math.max(distribution.ranges[trait].max, value);
+                }
+            });
+        });
+
+        // Process all viruses
+        this.viruses.forEach(virus => {
+            // Count viral categorical traits
+            if (distribution.counts.hasOwnProperty(virus.traits.defenseType)) {
+                distribution.counts[virus.traits.defenseType]++;
+            }
+
+            const shapeKey = `shape-${virus.traits.shape}`;
+            if (distribution.counts.hasOwnProperty(shapeKey)) {
+                distribution.counts[shapeKey]++;
+            }
+
+            const abilityKey = `ability-${virus.traits.specialAbility}`;
+            if (distribution.counts.hasOwnProperty(abilityKey)) {
+                distribution.counts[abilityKey]++;
+            }
+
+            // Process viral numerical traits
+            [...numericalTraits, ...viralTraits].forEach(trait => {
+                const value = virus.traits[trait];
+                if (value !== undefined && typeof value === 'number') {
+                    if (!distribution.averages[trait]) {
+                        distribution.averages[trait] = { sum: 0, count: 0, average: 0 };
+                        distribution.ranges[trait] = { min: Infinity, max: -Infinity };
+                    }
+                    distribution.averages[trait].sum += value;
+                    distribution.averages[trait].count++;
+                    distribution.ranges[trait].min = Math.min(distribution.ranges[trait].min, value);
+                    distribution.ranges[trait].max = Math.max(distribution.ranges[trait].max, value);
+                }
+            });
+        });
+
+        // Calculate final averages
+        Object.keys(distribution.averages).forEach(trait => {
+            const data = distribution.averages[trait];
+            if (data.count > 0) {
+                data.average = data.sum / data.count;
+            }
+
+            // Handle cases where no values were found
+            if (distribution.ranges[trait].min === Infinity) {
+                distribution.ranges[trait].min = 0;
+                distribution.ranges[trait].max = 0;
             }
         });
 
